@@ -15,10 +15,17 @@ define(['knockout', 'Model', 'underscore', 'jquery'], function (ko, Model, _, $)
 
                 var viewNode = $('<div id="' + comp.Name + '" data-bind="visible: ' + comp.Name + '_Inst(), with: ' + comp.Name + '_Inst"></div>');
                 viewNode.hide();
+                
+                var templateNode = $('<script type="text/template"></script>');
 
-                viewNode.load(comp.View, '', function ()
+                templateNode.load(comp.View, '', function ()
                 {
+                    var rawValue = templateNode.html();
+                    var compiled = _.template(rawValue, comp.Parameters);
+                    
+                    viewNode.html(compiled);
                     $('body').append(viewNode);
+                    
                     cnt++;
 
                     if (cnt == components.length)
