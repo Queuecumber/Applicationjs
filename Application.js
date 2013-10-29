@@ -40,14 +40,14 @@ define(['knockout', 'Model', 'underscore', 'jquery'], function (ko, Model, _, $)
             });
         },
         
-        Activate: function (viewName)
+        Activate: function (viewName, params)
         {
             var self = this;
         
             if(self.ActiveView() != undefined)
                 self[self.ActiveView()](null);
 
-            self[viewName + '_Inst'](new self[viewName]());
+            self[viewName + '_Inst'](new self[viewName](params));
             self.ActiveView(viewName + '_Inst');
         },
         
