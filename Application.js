@@ -16,6 +16,12 @@ define(['knockout', 'Model', 'underscore', 'jquery'], function (ko, Model, _, $)
                 var viewNode = $('<div id="' + comp.Name + '" data-bind="visible: ' + comp.Name + '_Inst(), with: ' + comp.Name + '_Inst"></div>');
                 viewNode.hide();
                 
+                if('Style' in comp)
+                {
+                    var styleLink = $('<link rel="stylesheet" type="text/css" href="' + comp.Style + '"/>');
+                    $('head').append(styleLink);
+                }
+                
                 var templateNode = $('<script type="text/template"></script>');
 
                 templateNode.load(comp.View, '', function ()
