@@ -16,7 +16,7 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
             self.Model = model;
             
             self.Name = name;
-            
+                       
             var titleElem = $('title');
             if(titleElem.length > 0)
             {
@@ -32,6 +32,7 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
             nameElements.text(name);
 
             // Set up each component
+            var orphanedNodes = {}; // Holds nodes that have no parent until their parent is loaded
             var cnt = 0; // Holds the number of completed view loads
             _.each(components, function (comp)
             {
@@ -39,8 +40,23 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
                 self[comp.Name] = comp.ViewModel;
                 self[comp.Name + '_Inst'] = ko.observable();    // Application.ComponentName_Inst is the actual instance of the ViewModel
 
-                // Create a div to hold the View with the ViewModel instance is the context and controling the visibility of the view
-                var viewNode = $('<div id="' + comp.Name + '" data-bind="visible: ' + comp.Name + '_Inst(), with: ' + comp.Name + '_Inst"></div>');
+                // Find the data-component root and set the ViewModel instance to the context and controling the visibility of the view
+                var viewNode = $('[data-component="' + comp.Name + '"]');
+                
+                if(viewNode.length > 0)
+                {
+                    loadComponent(viewNode, comp);
+                }
+                else
+                {
+                    orphanedNodes[comp.Name] = comp;
+                }
+            });
+            
+            function loadComponent(viewNode, comp)
+            {
+                viewNode.attr('id', comp.Name);
+                viewNode.attr('data-bind', 'visible: $root.' + comp.Name + '_Inst(), with: $root.' + comp.Name + '_Inst');
                 viewNode.hide();    // Views are hidden by default or they will flash on the screen before knockout is fully loaded
                 
                 // If the view has a stylesheet load that too
@@ -60,9 +76,20 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
                     var rawValue = templateNode.html();
                     var compiled = _.template(rawValue, comp.Parameters);
                     
-                    // Insert the compiled template into the view node and add it to the page body
+                    // Insert the compiled template into the data-component root                    
                     viewNode.html(compiled);
-                    $('body').append(viewNode);
+                    
+                    // Check the loaded view to see if it has the data-component of an orphaned viewName
+                    _.each(orphanedNodes, function(comp)
+                    {
+                        var subView = viewNode.find('[data-component="' + comp.Name + '"]');
+                        
+                        if(subView.length > 0)
+                        {
+                            delete orphanedNodes[comp.Name];
+                            loadComponent(subView, comp);
+                        }
+                    });
                     
                     // Increment the loaded view count
                     cnt++;
@@ -71,25 +98,23 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
                     if (cnt == components.length)
                         callback();
                 });
-            });
+            }
         },
         
         // Switches the active view
         Activate: function (viewName, params)
         {
-            var self = this;
-        
-            // If there is an active viewmodel, clear it out. This automatically hides the associated view
-            if(self.ActiveView() != undefined)
-                self[self.ActiveView()](null);
-    
             // Instantiate the new viewmodel, this automatically shows the associated view
+            var self = this;
             self[viewName + '_Inst'](new self[viewName](params));
-            self.ActiveView(viewName + '_Inst');    // Keep track of the active view
         },
         
-        // Tracks the active view by storing its parameter name 
-        ActiveView: ko.observable()
+        Finish: function(viewName, params)
+        {
+            // Clear the viewmodel, this automatically hides the associated view
+            var self = this;
+            self[viewName + '_Inst'](null);
+        }
     }
 
     return Application;
