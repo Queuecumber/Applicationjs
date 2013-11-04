@@ -3,17 +3,19 @@
 // Manages switching ui components which are views and associated viewmodels
 // Views are HTML partial pages, ViewModels are the underlying databindings and behavior
 // of the View. The ViewModel should take and return data to the Model object.
-define(['knockout', 'Model', 'underscore', 'jquery'], function (ko, Model, _, $)
+define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
 {
     var Application = {
     
         // Creates the application by providing ui component information. The callback is called
         // when all view nodes have been loaded into the page
-        Create: function (components, callback)
+        Create: function (name, model, components, callback)
         {
             var self = this;
             
-            self.Model = Model;
+            self.Model = model;
+            
+            self.Name = name;
 
             // Set up each component
             var cnt = 0; // Holds the number of completed view loads
