@@ -16,6 +16,20 @@ define(['knockout', 'underscore', 'jquery'], function (ko, _, $)
             self.Model = model;
             
             self.Name = name;
+            
+            var titleElem = $('title');
+            if(titleElem.length > 0)
+            {
+                titleElem.text(name);
+            }
+            else
+            {
+                titleElem = $('<title>' + name + '</title>');
+                $('head').append(titleElem);
+            }
+            
+            var nameElements = $('.AppName');
+            nameElements.text(name);
 
             // Set up each component
             var cnt = 0; // Holds the number of completed view loads
