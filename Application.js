@@ -24,6 +24,16 @@ function (ko, _, $)
         nameElements.text(app.Name);
     }
 
+    function ParseJsObject(string)
+    {
+        // Use 'eval' to create a javascript object from the malformed JSON
+        // NOTE: there are some serious security concerns with this method
+        var parenString = '(' + string + ')'; // object literals must be enclosed in parenthesis for eval to work properly
+        var obj = eval(parenString);
+
+        return obj;
+    }
+
     // Parses the DOM for data-component nodes and inserts their views
     function LoadComponents(app)
     {
@@ -83,8 +93,7 @@ function (ko, _, $)
                 var params = componentRoot.data('parameters');
                 if (params)
                 {
-                    params = params.replace("'", '"'); // man that's ugly
-                    params = JSON.parse(params);
+                    params = ParseJsObject(params);
                 }
 
                 // Get the node id to use as a field name
