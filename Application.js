@@ -83,6 +83,7 @@ function (ko, _, $)
                 var params = componentRoot.data('parameters');
                 if (params)
                 {
+                    params = params.replace("'", '"'); // man that's ugly
                     params = JSON.parse(params);
                 }
 
