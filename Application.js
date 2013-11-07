@@ -46,28 +46,86 @@ function (ko, _, $)
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
 
+        // Preload styles and templates for each component
+        _(app.Components).each(function (comp)
+        {
+            // Append the style node to the pages head
+            if ('Style' in comp)
+            {
+                var styleLink = $('<link rel="stylesheet" type="text/css" href="' + comp.Style + '"/>');
+                $('head').append(styleLink);
+            }
+
+            // Load the view template and store it for later
+            $.get(comp.View, {}, function (viewData)
+            {
+                comp.Template = viewData;
+            });
+        });
+
+        // Put JQuery back into asynchronous mode for future ajax requests
+        $.ajaxSetup({ async: true });
+
+        // Parse the DOM and expand any data-component nodes with their HTML. 
+        // This step will initialize the views and viewmodels in a breadth first traversal
         var componentsQueue = $('[data-component]').toArray();
 
         while (componentsQueue.length > 0)
         {
-            var componentRoot = $(componentsQueue.pop());
+            var componentRoot = $(componentsQueue.shift()); // dequeue operation
             var componentName = componentRoot.data('component');
 
-            var component = _.findWhere(app.Components, { name: componentName });
+            // Find the component description
+            var component = _(app.Components).findWhere({ name: componentName });
             if (component)
             {
+                // Get the components view parameters
                 var params = componentRoot.data('parameters');
                 if (params)
                 {
                     params = JSON.parse(params);
                 }
 
+                // Get the node id to use as a field name
+                var fieldName = componentRoot.attr('id');
 
+                // Create the view model and add standard fields
+                var viewModel = new component.ViewModel();
+                viewModel.Visible = ko.observable(false); // Hidden by default
+                viewModel.Id = fieldName;
+                viewModel.ViewParameters = params;
+
+                // Find the parent of the view, using app when there is no parent
+                var parentId = componentRoot.data('parent');
+                var parent = app;
+                if (parentId)
+                {
+                    var parent = app.Find(parentId);
+                }
+
+                // Add the viewmodel to its parent
+                parent[fieldName] = ko.observable(viewModel);
+
+                // Add databinding for visibility and context to the component root node
+                componentRoot.attr('data-bind', 'visible: ' + fieldName + '.Visible, with:' + fieldName);
+                componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
+
+                // Compile the view using its parameters
+                var compiledView = _.template(component, params);
+
+                // Insert the compiled view into the DOM
+                componentRoot.html(compiledView);
+
+                // Find any child data-component nodes and push them onto the queue
+                var childComponents = componentRoot.find('[data-component]').toArray();
+                _(childComponents).each(function (child)
+                {
+                    // Set the parent id so that we can get it later
+                    $(child).data('parent', fieldName);
+                    componentsQueue.push(child);
+                });
             }
         }
-
-        // Put JQuery back into asynchronous mode for ajax requests
-        $.ajaxSetup({ async: true });
     }
 
     var Application = {
