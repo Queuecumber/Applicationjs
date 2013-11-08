@@ -177,6 +177,7 @@ function (ko, _, $)
                     viewModel.Find = this.Find;
                     viewModel.Activate = this.Activate;
                     viewModel.Finish = this.Finish;
+                    viewModel.View = $('#' + fieldName);
 
                     // Find the parent of the view, using app when there is no parent
                     var parentRoot = componentRoot.parent().closest('[data-component]');
