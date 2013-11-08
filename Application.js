@@ -74,74 +74,6 @@ function (ko, _, $)
     // 
     // * Events: 'activate', 'finish'  * Fields: Node, Parent, Visible(?)
     // * Ignore any nodes with a data-component of unknown name
-    function ComposePage(app)
-    {
-        // Parse the DOM and expand any data-component nodes with their HTML. 
-        // This step will initialize the views and viewmodels in a breadth first traversal
-        var componentsQueue = $('[data-component]').toArray();
-
-        while (componentsQueue.length > 0)
-        {
-            var componentRoot = $(componentsQueue.shift()); // dequeue operation
-            var componentName = componentRoot.data('component');
-
-            // Find the component description
-            var component = _(app.Components).findWhere({ Name: componentName });
-            if (component)
-            {
-                // Get the components view parameters
-                var params = componentRoot.data('parameters');
-                if (params)
-                {
-                    params = ParseJsObject(params);
-                }
-
-                // Get the node id to use as a field name
-                var fieldName = componentRoot.attr('id');
-
-                // Create the view model and add standard fields
-                var viewModel = new component.ViewModel();
-                viewModel.Visible = ko.observable(false); // Hidden by default
-                viewModel.Id = fieldName;
-                viewModel.ViewParameters = params;
-                viewModel.Children = ko.observableArray();
-                viewModel.Find = app.Find;
-                viewModel.Activate = app.Activate;
-                viewModel.Finish = app.Finish;
-
-                // Find the parent of the view, using app when there is no parent
-                var parentId = componentRoot.data('parent');
-                var parent = app;
-                if (parentId)
-                {
-                    var parent = app.Find(parentId);
-                }
-
-                // Add the viewmodel to its parent
-                parent[fieldName] = ko.observable(viewModel);
-                parent.Children.push(viewModel);
-
-                // Add databinding for visibility and context to the component root node
-                componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
-                componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
-
-                // Compile the view using its parameters
-                var compiledView = _.template(component.Template, params);
-
-                // Insert the compiled view into the DOM
-                componentRoot.html(compiledView);
-
-                // Find any child data-component nodes and push them onto the queue
-                var childComponents = componentRoot.find('[data-component]').toArray();
-                _(childComponents).each(function (child)
-                {
-                    // Set the parent id so that we can get it later
-                    $(child).data('parent', fieldName);
-                    componentsQueue.push(child);
-                });
-            }
-        }
-    }
 
     var Application = {
 
@@ -151,31 +83,35 @@ function (ko, _, $)
 
         Components: [],
 
+        Visible: true,
+
         Children: ko.observableArray(),
 
         // Creates the application by providing ui component information. The callback is called
         // when all view nodes have been loaded into the page
         Create: function (name, model, components)
         {
-            var self = this;
+            this.Model = model;
+            this.Name = name;
+            this.Components = components;
 
-            self.Model = model;
-            self.Name = name;
-            self.Components = components;
+            ApplyName(this);
+            LoadComponents(this);
 
-            ApplyName(self);
-            LoadComponents(self);
-            ComposePage(self);
+            var topLevelComponents = $('[data-component]').toArray();
+            this.ExpandComponents(topLevelComponents);
 
             $(this).triggerHandler('Loaded');
         },
 
+        // Activate a component, attached to all child components ViewModels
         Activate: function (params)
         {
             this.Visible(true);
             $(this).triggerHandler('Activate', [params]);
         },
 
+        // Finishes a component, attached to all child components ViewModels
         Finish: function (viewName, params)
         {
             this.Visible(false);
@@ -206,6 +142,74 @@ function (ko, _, $)
             });
 
             return target;
+        },
+
+        // Expands a data-component element into its component, uses a breadth-first traversal
+        ExpandComponents: function (components)
+        {
+            var componentsQueue = components;
+
+            while (componentsQueue.length > 0)
+            {
+                var componentRoot = $(componentsQueue.shift()); // dequeue operation
+                var componentName = componentRoot.data('component');
+
+                // Find the component description
+                var component = _(this.Components).findWhere({ Name: componentName });
+                if (component)
+                {
+                    // Get the components view parameters
+                    var params = componentRoot.data('parameters');
+                    if (params)
+                    {
+                        params = ParseJsObject(params);
+                    }
+
+                    // Get the node id to use as a field name
+                    var fieldName = componentRoot.attr('id');
+
+                    // Create the view model and add standard fields
+                    var viewModel = new component.ViewModel();
+                    viewModel.Visible = ko.observable(false); // Hidden by default
+                    viewModel.Id = fieldName;
+                    viewModel.ViewParameters = params;
+                    viewModel.Children = ko.observableArray();
+                    viewModel.Find = this.Find;
+                    viewModel.Activate = this.Activate;
+                    viewModel.Finish = this.Finish;
+
+                    // Find the parent of the view, using app when there is no parent
+                    var parentRoot = componentRoot.parent().closest('[data-component]');
+                    var parent = this;
+                    if (parentRoot.length > 0)
+                    {
+                        var parent = this.Find(parentRoot.attr('id'));
+                    }
+
+                    // Add the viewmodel to its parent
+                    parent[fieldName] = ko.observable(viewModel);
+                    parent.Children.push(viewModel);
+
+                    // Add databinding for visibility and context to the component root node
+                    componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
+                    componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
+
+                    // Compile the view using its parameters
+                    var compiledView = _.template(component.Template, params);
+
+                    // Insert the compiled view into the DOM
+                    componentRoot.html(compiledView);
+
+                    // Find any child data-component nodes and push them onto the queue
+                    var childComponents = componentRoot.find('[data-component]').toArray();
+                    _(childComponents).each(function (child)
+                    {
+                        // Set the parent id so that we can get it later
+                        $(child).data('parent', fieldName);
+                        componentsQueue.push(child);
+                    });
+                }
+            }
         }
     }
 
