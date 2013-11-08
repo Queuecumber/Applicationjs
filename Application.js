@@ -27,32 +27,16 @@ function (ko, _, $)
     function ParseJsObject(string)
     {
         // Use 'eval' to create a javascript object from the malformed JSON
-        // NOTE: there are some serious security concerns with this method
+        // NOTE: there are some security concerns with this method
         var parenString = '(' + string + ')'; // object literals must be enclosed in parenthesis for eval to work properly
         var obj = eval(parenString);
 
         return obj;
     }
 
-    // Parses the DOM for data-component nodes and inserts their views
+    // Loads view templates and styles for each component
     function LoadComponents(app)
     {
-        // Page Composition Algorithm:
-        // -----------------------------------
-        // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
-        // 2. Take a node off the queue, parse the nodes parameters if any
-        // 3. load the components stylesheet and modify it to only apply to child elements of the current components root  -- May not need the last part of this
-        // 4. load the components template, *synchronously*, and expand the parameters
-        // 5. insert the expanded template into the components root as html
-        // 6. find the components parent, use Application if none, and add variable containers for that component
-        // 7. add events and fields to the node and loaded component *
-        // 8. add visibility and context databindings to the root node
-        // 9. parse the components html children  for data-component nodes and add them to the queue
-        // 10. When the queue is empty, the page is finished loading
-        // 
-        // * Events: 'activate', 'finish'  * Fields: Node, Parent, Visible(?)
-        // * Ignore any nodes with a data-component of unknown name
-
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
 
@@ -75,7 +59,23 @@ function (ko, _, $)
 
         // Put JQuery back into asynchronous mode for future ajax requests
         $.ajaxSetup({ async: true });
+    }
 
+    // Page Composition Algorithm:
+    // -----------------------------------
+    // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
+    // 2. Take a node off the queue, parse the nodes parameters if any
+    // 3. add events and fields to the node and loaded component *
+    // 4. find the components parent, use Application if none, and add variable containers for that component
+    // 5. add visibility and context databindings to the root node
+    // 6. insert the expanded template into the components root as html
+    // 7. parse the components html children  for data-component nodes and add them to the queue
+    // 8. When the queue is empty, the page is finished loading
+    // 
+    // * Events: 'activate', 'finish'  * Fields: Node, Parent, Visible(?)
+    // * Ignore any nodes with a data-component of unknown name
+    function ComposePage(app)
+    {
         // Parse the DOM and expand any data-component nodes with their HTML. 
         // This step will initialize the views and viewmodels in a breadth first traversal
         var componentsQueue = $('[data-component]').toArray();
@@ -86,7 +86,7 @@ function (ko, _, $)
             var componentName = componentRoot.data('component');
 
             // Find the component description
-            var component = _(app.Components).findWhere({ name: componentName });
+            var component = _(app.Components).findWhere({ Name: componentName });
             if (component)
             {
                 // Get the components view parameters
@@ -104,6 +104,10 @@ function (ko, _, $)
                 viewModel.Visible = ko.observable(false); // Hidden by default
                 viewModel.Id = fieldName;
                 viewModel.ViewParameters = params;
+                viewModel.Children = ko.observableArray();
+                viewModel.Find = app.Find;
+                viewModel.Activate = app.Activate;
+                viewModel.Finish = app.Finish;
 
                 // Find the parent of the view, using app when there is no parent
                 var parentId = componentRoot.data('parent');
@@ -115,13 +119,14 @@ function (ko, _, $)
 
                 // Add the viewmodel to its parent
                 parent[fieldName] = ko.observable(viewModel);
+                parent.Children.push(viewModel);
 
                 // Add databinding for visibility and context to the component root node
-                componentRoot.attr('data-bind', 'visible: ' + fieldName + '.Visible, with:' + fieldName);
+                componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
                 componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
 
                 // Compile the view using its parameters
-                var compiledView = _.template(component, params);
+                var compiledView = _.template(component.Template, params);
 
                 // Insert the compiled view into the DOM
                 componentRoot.html(compiledView);
@@ -140,15 +145,17 @@ function (ko, _, $)
 
     var Application = {
 
-        Model: null,
+        Model: {},
 
-        Name: "",
+        Name: '',
 
         Components: [],
 
+        Children: ko.observableArray(),
+
         // Creates the application by providing ui component information. The callback is called
         // when all view nodes have been loaded into the page
-        Create: function (name, model, components, callback)
+        Create: function (name, model, components)
         {
             var self = this;
 
@@ -158,90 +165,45 @@ function (ko, _, $)
 
             ApplyName(self);
             LoadComponents(self);
-
-            // Set up each component
-            var orphanedNodes = {}; // Holds nodes that have no parent until their parent is loaded
-            var cnt = 0; // Holds the number of completed view loads
-            _.each(components, function (comp)
-            {
-                // Application.ComponentName is the ViewModel class to be instantiated when the UI is shown
-                self[comp.Name] = comp.ViewModel;
-                self[comp.Name + '_Inst'] = ko.observable();    // Application.ComponentName_Inst is the actual instance of the ViewModel
-
-                // Find the data-component root and set the ViewModel instance to the context and controling the visibility of the view
-                var viewNode = $('[data-component="' + comp.Name + '"]');
-
-                if (viewNode.length > 0)
-                {
-                    loadComponent(viewNode, comp);
-                }
-                else
-                {
-                    orphanedNodes[comp.Name] = comp;
-                }
-            });
-
-            function loadComponent(viewNode, comp)
-            {
-                viewNode.attr('id', comp.Name);
-                viewNode.attr('data-bind', 'visible: $root.' + comp.Name + '_Inst(), with: $root.' + comp.Name + '_Inst');
-                viewNode.hide();    // Views are hidden by default or they will flash on the screen before knockout is fully loaded
-
-                // If the view has a stylesheet load that too
-                if ('Style' in comp)
-                {
-                    var styleLink = $('<link rel="stylesheet" type="text/css" href="' + comp.Style + '"/>');
-                    $('head').append(styleLink);
-                }
-
-                //  Make a template node to hold the raw view before it has been processed for template replacement 
-                var templateNode = $('<script type="text/template"></script>');
-
-                // Load the view into the template node
-                templateNode.load(comp.View, '', function ()
-                {
-                    // When the loading has been completed, perform the template expansion
-                    var rawValue = templateNode.html();
-                    var compiled = _.template(rawValue, comp.Parameters);
-
-                    // Insert the compiled template into the data-component root                    
-                    viewNode.html(compiled);
-
-                    // Check the loaded view to see if it has the data-component of an orphaned viewName
-                    _.each(orphanedNodes, function (comp)
-                    {
-                        var subView = viewNode.find('[data-component="' + comp.Name + '"]');
-
-                        if (subView.length > 0)
-                        {
-                            delete orphanedNodes[comp.Name];
-                            loadComponent(subView, comp);
-                        }
-                    });
-
-                    // Increment the loaded view count
-                    cnt++;
-
-                    // If all the views have been loaded (since this all happens asynchronously) call the callback
-                    if (cnt == components.length)
-                        callback();
-                });
-            }
+            ComposePage(self);
         },
 
-        // Switches the active view
-        Activate: function (viewName, params)
+        Activate: function (params)
         {
-            // Instantiate the new viewmodel, this automatically shows the associated view
-            var self = this;
-            self[viewName + '_Inst'](new self[viewName](params));
+            this.Visible(true);
+            $(this).triggerHandler('Activate', [params]);
         },
 
         Finish: function (viewName, params)
         {
-            // Clear the viewmodel, this automatically hides the associated view
-            var self = this;
-            self[viewName + '_Inst'](null);
+            this.Visible(false);
+            $(this).triggerHandler('Finish', [params]);
+        },
+
+        // Find an component by id using a depth first search (recursive)
+        Find: function (componentId)
+        {
+            var target = null;
+
+            _(this.Children()).each(function (child)
+            {
+                var foundChild = null;
+                if (child.Id == componentId)
+                {
+                    foundChild = child;
+                }
+                else
+                {
+                    foundChild = child.Find(componentId);
+                }
+
+                if (foundChild != null)
+                {
+                    target = foundChild;
+                }
+            });
+
+            return target;
         }
     }
 
