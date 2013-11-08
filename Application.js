@@ -166,6 +166,8 @@ function (ko, _, $)
             ApplyName(self);
             LoadComponents(self);
             ComposePage(self);
+
+            $(this).triggerHandler('Loaded');
         },
 
         Activate: function (params)
