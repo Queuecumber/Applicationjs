@@ -6,25 +6,7 @@
 define(['knockout', 'underscore', 'jquery', 'guid'],
 function (ko, _, $, Guid)
 {
-    // Applies the application name to the DOM
-    function ApplyName(app)
-    {
-        var titleElem = $('title');
-        if (titleElem.length > 0)
-        {
-            titleElem.text(app.Name);
-        }
-        else
-        {
-            titleElem = $('<title>' + app.Name + '</title>');
-            $('head').append(titleElem);
-        }
-
-        var nameElements = $('.AppName');
-        nameElements.text(app.Name);
-    }
-
-    function ParseJsObject(string)
+    function _ParseJsObject(string)
     {
         // Use 'eval' to create a javascript object from the malformed JSON
         // NOTE: there are some security concerns with this method
@@ -35,13 +17,13 @@ function (ko, _, $, Guid)
     }
 
     // Loads view templates and styles for each component
-    function LoadComponents(app)
+    function _LoadComponents(app)
     {
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
 
         // Preload styles and templates for each component
-        _(app.Components).each(function (comp)
+        _(app.Components()).each(function (comp)
         {
             // Append the style node to the pages head
             if ('Style' in comp)
@@ -65,38 +47,49 @@ function (ko, _, $, Guid)
     // -----------------------------------
     // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
     // 2. Take a node off the queue, parse the nodes parameters if any
-    // 3. Add events and fields to the node and loaded component *
+    // 3. Add events and fields to the node and loaded component 
     // 4. Find the components parent, use Application if none, and add variable containers for that component
     // 5. Add visibility and context databindings to the root node
     // 6. Insert the expanded template into the components root as html
-    // 7. Parse the components html children  for data-component nodes and add them to the queue
+    // 7. Parse the components html children for data-component nodes and add them to the queue
     // 8. When the queue is empty, the page is finished loading
-    // 
-    // * Events: 'activate', 'finish'  * Fields: Node, Parent, Visible(?)
-    // * Ignore any nodes with a data-component of unknown name
 
     var Application = {
 
-        Model: {},
+        Model: ko.observable({}),
 
-        Name: '',
+        Name: ko.observable(''),
 
-        Components: [],
+        Components: ko.observableArray([]),
 
-        Visible: true,
+        Visible: ko.observable(true),
 
         Children: ko.observableArray(),
 
         // Creates the application by providing ui component information. The callback is called
         // when all view nodes have been loaded into the page
-        Create: function (name, model, components)
+        Create: function (components)
         {
-            this.Model = model;
-            this.Name = name;
-            this.Components = components;
+            this.Components(components);
+            
+            this.Name.subscribe(function(value)
+            {
+                var titleElem = $('title');
+                if (titleElem.length > 0)
+                {
+                    titleElem.text(value);
+                }
+                else
+                {
+                    titleElem = $('<title>' + value + '</title>');
+                    $('head').append(titleElem);
+                }
 
-            ApplyName(this);
-            LoadComponents(this);
+                var nameElements = $('.AppName');
+                nameElements.text(value);
+            });
+
+            _LoadComponents(this);
 
             var topLevelComponents = $('[data-component]').toArray();
             this.ExpandComponents(topLevelComponents);
@@ -143,6 +136,11 @@ function (ko, _, $, Guid)
 
             return target;
         },
+        
+        ExpandComponent : function(component)
+        {
+            ExpandComponents([component]);
+        },
 
         // Expands a data-component element into its component, uses a breadth-first traversal
         ExpandComponents: function (components)
@@ -155,14 +153,14 @@ function (ko, _, $, Guid)
                 var componentName = componentRoot.data('component');
 
                 // Find the component description
-                var component = _(this.Components).findWhere({ Name: componentName });
+                var component = _(this.Components()).findWhere({ Name: componentName });
                 if (component)
                 {
                     // Get the components view parameters
                     var params = componentRoot.data('parameters');
                     if (params)
                     {
-                        params = ParseJsObject(params);
+                        params = _ParseJsObject(params);
                     }
 
                     // Get the name to use as a field name
