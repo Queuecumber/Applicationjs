@@ -66,35 +66,18 @@ function (ko, _, $, Guid)
 
         Children: ko.observableArray(),
 
-        // Creates the application by providing ui component information. The callback is called
-        // when all view nodes have been loaded into the page
-        Create: function (components)
+        // Composes the page and applies data bindings
+        Compose: function (components)
         {
             this.Components(components);
-            
-            this.Name.subscribe(function(value)
-            {
-                var titleElem = $('title');
-                if (titleElem.length > 0)
-                {
-                    titleElem.text(value);
-                }
-                else
-                {
-                    titleElem = $('<title>' + value + '</title>');
-                    $('head').append(titleElem);
-                }
-
-                var nameElements = $('.AppName');
-                nameElements.text(value);
-            });
-
             _LoadComponents(this);
 
             var topLevelComponents = $('[data-component]').toArray();
             this.ExpandComponents(topLevelComponents);
 
             $(this).triggerHandler('Loaded');
+            
+            ko.applyBindings(this);
         },
 
         // Activate a component, attached to all child components ViewModels
@@ -137,15 +120,39 @@ function (ko, _, $, Guid)
             return target;
         },
         
+        // Inject a component dynamically
+        InjectComponent : function (component)
+        {
+            // Expand the component into the DOM
+            var viewModels = this.ExpandComponent(component); 
+            
+            // Trigger injection handlers for the inserted treee
+            _(viewModels).each(function (vm)
+            {
+                $(vm).triggerHandler('Injected');
+            });
+            
+            // Apply bindings to the root level injected node using its parent
+            var parent = viewModels[0].Parent();
+            ko.applyBindingsToNode(component, null, parent);
+            
+            // Return the root of the injected componentsQueue
+            return viewModels[0];
+        },
+        
+        // Shorthand to expand a single component
+        // returns a tree structure in an array of the expanded components
         ExpandComponent : function(component)
         {
-            ExpandComponents([component]);
+            return this.ExpandComponents([component]);
         },
 
         // Expands a data-component element into its component, uses a breadth-first traversal
+        // Returns a list of the constructed view models that were expanded
         ExpandComponents: function (components)
         {
             var componentsQueue = components;
+            var viewModels = [];
 
             while (componentsQueue.length > 0)
             {
@@ -177,6 +184,9 @@ function (ko, _, $, Guid)
                     viewModel.Finish = this.Finish;
                     viewModel.Uid = Guid.NewGuid();
                     viewModel.View = function () { return $('#' + this.Uid); };
+                    
+                    // Add the view model to the list of view models that were processed
+                    viewModels.push(viewModel);
 
                     // Find the parent of the view, using app when there is no parent
                     var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -186,9 +196,10 @@ function (ko, _, $, Guid)
                         var parent = this.Find(parentRoot.attr('id'));
                     }
 
-                    // Add the viewmodel to its parent
+                    // Add the viewmodel to its parent and add a parent property to the viewmodel
                     parent[fieldName] = ko.observable(viewModel);
                     parent.Children.push(viewModel);
+                    viewModel.Parent = ko.observable(parent);
 
                     // Add databinding for visibility and context to the component root node
                     componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
@@ -209,8 +220,27 @@ function (ko, _, $, Guid)
                     });
                 }
             }
+            
+            return viewModels;
         }
     }
+    
+    Application.Name.subscribe(function(value)
+    {
+        var titleElem = $('title');
+        if (titleElem.length > 0)
+        {
+            titleElem.text(value);
+        }
+        else
+        {
+            titleElem = $('<title>' + value + '</title>');
+            $('head').append(titleElem);
+        }
+
+        var nameElements = $('.AppName');
+        nameElements.text(value);
+    });
 
     return Application;
 });
