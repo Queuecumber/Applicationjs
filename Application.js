@@ -3,8 +3,8 @@
 // Manages switching ui components which are views and associated viewmodels
 // Views are HTML partial pages, ViewModels are the underlying databindings and behavior
 // of the View. The ViewModel should take and return data to the Model object.
-define(['knockout', 'underscore', 'jquery'],
-function (ko, _, $)
+define(['knockout', 'underscore', 'jquery', 'guid'],
+function (ko, _, $, Guid)
 {
     // Applies the application name to the DOM
     function ApplyName(app)
@@ -126,7 +126,7 @@ function (ko, _, $)
             _(this.Children()).each(function (child)
             {
                 var foundChild = null;
-                if (child.Id == componentId)
+                if (child.Uid == componentId)
                 {
                     foundChild = child;
                 }
@@ -165,19 +165,20 @@ function (ko, _, $)
                         params = ParseJsObject(params);
                     }
 
-                    // Get the node id to use as a field name
-                    var fieldName = componentRoot.attr('id');
+                    // Get the name to use as a field name
+                    var fieldName = componentRoot.data('name');
 
                     // Create the view model and add standard fields
                     var viewModel = new component.ViewModel();
                     viewModel.Visible = ko.observable(false); // Hidden by default
-                    viewModel.Id = fieldName;
+                    viewModel.Name = fieldName;
                     viewModel.ViewParameters = params;
                     viewModel.Children = ko.observableArray();
                     viewModel.Find = this.Find;
                     viewModel.Activate = this.Activate;
                     viewModel.Finish = this.Finish;
-                    viewModel.View = $('#' + fieldName);
+                    viewModel.Uid = Guid.NewGuid();
+                    viewModel.View = function () { return $('#' + this.Uid); };
 
                     // Find the parent of the view, using app when there is no parent
                     var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -193,6 +194,7 @@ function (ko, _, $)
 
                     // Add databinding for visibility and context to the component root node
                     componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
+                    componentRoot.attr('id', viewModel.Uid);
                     componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
 
                     // Compile the view using its parameters
@@ -205,8 +207,6 @@ function (ko, _, $)
                     var childComponents = componentRoot.find('[data-component]').toArray();
                     _(childComponents).each(function (child)
                     {
-                        // Set the parent id so that we can get it later
-                        $(child).data('parent', fieldName);
                         componentsQueue.push(child);
                     });
                 }
