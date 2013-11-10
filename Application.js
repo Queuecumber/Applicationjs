@@ -65,11 +65,11 @@ function (ko, _, $, Guid)
     // -----------------------------------
     // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
     // 2. Take a node off the queue, parse the nodes parameters if any
-    // 3. add events and fields to the node and loaded component *
-    // 4. find the components parent, use Application if none, and add variable containers for that component
-    // 5. add visibility and context databindings to the root node
-    // 6. insert the expanded template into the components root as html
-    // 7. parse the components html children  for data-component nodes and add them to the queue
+    // 3. Add events and fields to the node and loaded component *
+    // 4. Find the components parent, use Application if none, and add variable containers for that component
+    // 5. Add visibility and context databindings to the root node
+    // 6. Insert the expanded template into the components root as html
+    // 7. Parse the components html children  for data-component nodes and add them to the queue
     // 8. When the queue is empty, the page is finished loading
     // 
     // * Events: 'activate', 'finish'  * Fields: Node, Parent, Visible(?)
