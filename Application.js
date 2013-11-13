@@ -40,7 +40,7 @@ function (ko, _, $, Guid)
             ExpandComponents(topLevelComponents);
 
             $(this).triggerHandler('Loaded');
-            
+
             ko.applyBindings(this);
         },
 
@@ -83,30 +83,30 @@ function (ko, _, $, Guid)
 
             return target;
         },
-        
+
         // Inject a component dynamically
-        InjectComponent : function (component)
+        InjectComponent: function (component)
         {
             // Expand the component into the DOM
-            var viewModels = ExpandComponent(component); 
-            
+            var viewModels = ExpandComponent(component);
+
             // Trigger injection handlers for the inserted treee
             _(viewModels).each(function (vm)
             {
                 $(vm).triggerHandler('Injected');
             });
-            
+
             // Apply bindings to the root level injected node using its parent
             var parent = viewModels[0].Parent();
             ko.applyBindingsToNode(component, null, parent);
-            
+
             // Return the root of the injected componentsQueue
             return viewModels[0];
         }
     }
-    
+
     // Application private interface
-    
+
     // Parses a javascript object from a string, NOT json
     function ParseJsObject(string)
     {
@@ -117,7 +117,7 @@ function (ko, _, $, Guid)
 
         return obj;
     }
-    
+
     // Loads view templates and styles for each component
     function _LoadComponents()
     {
@@ -145,7 +145,7 @@ function (ko, _, $, Guid)
         $.ajaxSetup({ async: true });
     }
     var LoadComponents = _.bind(_LoadComponents, Application);
-    
+
     // Shorthand to expand a single component
     // returns a tree structure in an array of the expanded components
     function _ExpandComponent(component)
@@ -153,7 +153,7 @@ function (ko, _, $, Guid)
         return ExpandComponents([component]);
     }
     var ExpandComponent = _.bind(_ExpandComponent, Application);
-    
+
     // Expands a data-component element into its component, uses a breadth-first traversal
     // Returns a list of the constructed view models that were expanded
     function _ExpandComponents(components)
@@ -165,6 +165,29 @@ function (ko, _, $, Guid)
         {
             var componentRoot = $(componentsQueue.shift()); // dequeue operation
             var componentName = componentRoot.data('component');
+
+            // Make sure that the component is not in a foreach block
+            var componentParents = componentRoot.parents();
+
+            // This is inefficient, I only need to look up the the nearest data-component and I can stop 
+            // once I know to skip, fix it
+            var skip = false;
+            _(componentParents).each(function (parent)
+            {
+                var binding = $(parent).data('bind');
+
+                if (binding)
+                {
+                    if (binding.indexOf('foreach:') >= 0)
+                    {
+                        skip = true;
+                    }
+                }
+            });
+
+            // This is ugly, clean it up
+            if (skip)
+                continue;
 
             // Find the component description
             var component = _(this.Components()).findWhere({ Name: componentName });
@@ -191,7 +214,7 @@ function (ko, _, $, Guid)
                 viewModel.Finish = this.Finish;
                 viewModel.Uid = Guid.NewGuid();
                 viewModel.View = function () { return $('#' + this.Uid); };
-                
+
                 // Add the view model to the list of view models that were processed
                 viewModels.push(viewModel);
 
@@ -228,13 +251,19 @@ function (ko, _, $, Guid)
                 });
             }
         }
-        
+
         return viewModels;
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
-    
+
+    function _ExpandComponentCollection(component)
+    {
+
+    }
+    var ExpandComponentCollection = _.bind(_ExpandComponentCollection, Application);
+
     // Updates the title element when the application name is set
-    Application.Name.subscribe(function(value)
+    Application.Name.subscribe(function (value)
     {
         var titleElem = $('title');
         if (titleElem.length > 0)
@@ -247,6 +276,17 @@ function (ko, _, $, Guid)
             $('head').append(titleElem);
         }
     });
+
+    // Add node processor for foreach bindings
+    ko.bindingProvider.instance.preprocessNode = function (node)
+    {
+        var dataComponent = $(node).data('component');
+
+        if (dataComponent)
+        {
+            ExpandComponentCollection(node);
+        }
+    };
 
     return Application;
 });
