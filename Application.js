@@ -35,6 +35,9 @@ function (ko, _, $, Guid)
         {
             this.Components(components);
             LoadComponents();
+            
+            // Apply initial component types
+            TypeComponents($('body'));
 
             var topLevelComponents = $('[data-component]').toArray();
             ExpandComponents(topLevelComponents);
@@ -166,101 +169,115 @@ function (ko, _, $, Guid)
             var componentRoot = $(componentsQueue.shift()); // dequeue operation
             var componentName = componentRoot.data('component');
 
-            // Make sure that the component is not in a foreach block
-            var componentParents = componentRoot.parents();
-
-            // This is inefficient, I only need to look up the the nearest data-component and I can stop 
-            // once I know to skip, fix it
-            var skip = false;
-            _(componentParents).each(function (parent)
+            // Check the component type to make sure it isnt a collection component
+            var componentType = componentRoot.data('componentType');
+            if(componentType != 'collection')
             {
-                var binding = $(parent).data('bind');
-
-                if (binding)
+                // Find the component description
+                var component = _(this.Components()).findWhere({ Name: componentName });
+                if (component)
                 {
-                    if (binding.indexOf('foreach:') >= 0)
-                    {
-                        skip = true;
-                    }
+                    var viewModel = BuildComponent(componentRoot, component);
+                    
+                    // Add the view model to the list of view models that were processed
+                    viewModels.push(viewModel);
+
+                    // Find any child data-component nodes and push them onto the queue
+                    var childComponents = componentRoot.find('[data-component]').toArray();
+                    _(childComponents).each(function (child)
+                    {                    
+                        componentsQueue.push(child);
+                    });
                 }
-            });
-
-            // This is ugly, clean it up
-            if (skip)
-                continue;
-
-            // Find the component description
-            var component = _(this.Components()).findWhere({ Name: componentName });
-            if (component)
-            {
-                // Get the components view parameters
-                var params = componentRoot.data('parameters');
-                if (params)
-                {
-                    params = ParseJsObject(params);
-                }
-
-                // Get the name to use as a field name
-                var fieldName = componentRoot.data('name');
-
-                // Create the view model and add standard fields
-                var viewModel = new component.ViewModel();
-                viewModel.Visible = ko.observable(false); // Hidden by default
-                viewModel.Name = fieldName;
-                viewModel.ViewParameters = params;
-                viewModel.Children = ko.observableArray();
-                viewModel.Find = this.Find;
-                viewModel.Activate = this.Activate;
-                viewModel.Finish = this.Finish;
-                viewModel.Uid = Guid.NewGuid();
-                viewModel.View = function () { return $('#' + this.Uid); };
-
-                // Add the view model to the list of view models that were processed
-                viewModels.push(viewModel);
-
-                // Find the parent of the view, using app when there is no parent
-                var parentRoot = componentRoot.parent().closest('[data-component]');
-                var parent = this;
-                if (parentRoot.length > 0)
-                {
-                    var parent = this.Find(parentRoot.attr('id'));
-                }
-
-                // Add the viewmodel to its parent and add a parent property to the viewmodel
-                parent[fieldName] = ko.observable(viewModel);
-                parent.Children.push(viewModel);
-                viewModel.Parent = ko.observable(parent);
-
-                // Add databinding for visibility and context to the component root node
-                componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with:' + fieldName);
-                componentRoot.attr('id', viewModel.Uid);
-                componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
-
-                // Compile the view using its parameters
-                var compiledView = _.template(component.Template, params);
-
-
-                // Insert the compiled view into the DOM
-                componentRoot.html(compiledView);
-
-                // Find any child data-component nodes and push them onto the queue
-                var childComponents = componentRoot.find('[data-component]').toArray();
-                _(childComponents).each(function (child)
-                {
-                    componentsQueue.push(child);
-                });
             }
         }
 
         return viewModels;
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
-
-    function _ExpandComponentCollection(component)
+    
+    function _BuildComponent(componentRoot, component, type)
     {
+        // Get the components view parameters
+        var params = componentRoot.data('parameters');
+        if (params)
+        {
+            params = ParseJsObject(params);
+        }
 
+        // Get the name to use as a field name
+        var fieldName = componentRoot.data('name');
+
+        // Create the view model and add standard fields
+        var viewModel = new component.ViewModel();
+        viewModel.Visible = ko.observable(false); // Hidden by default
+        viewModel.Name = fieldName;
+        viewModel.ViewParameters = params;
+        viewModel.Children = ko.observableArray();
+        viewModel.Find = this.Find;
+        viewModel.Activate = this.Activate;
+        viewModel.Finish = this.Finish;
+        viewModel.Uid = Guid.NewGuid();
+        viewModel.View = function () { return $('#' + this.Uid); };
+
+        // Find the parent of the view, using app when there is no parent
+        var parentRoot = componentRoot.parent().closest('[data-component]');
+        var parent = this;
+        if (parentRoot.length > 0)
+        {
+            var parent = this.Find(parentRoot.attr('id'));
+        }
+
+        // Add the viewmodel to its parent and add a parent property to the viewmodel
+        if(type != 'collection')
+        {
+            parent[fieldName] = ko.observable(viewModel);
+            
+            // Add databinding for visibility and context to the component root node
+            componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with: ' + fieldName);
+        }
+        else
+        {
+            if(!(fieldName in parent))
+            {
+                parent[fieldName] = {};
+            }
+            
+            parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
+            
+            // Add databinding for visibility and context to the component root node
+            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');          
+        }
+        
+        parent.Children.push(viewModel);
+        viewModel.Parent = ko.observable(parent);
+
+        componentRoot.attr('id', viewModel.Uid);
+        componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
+
+        // Compile the view using its parameters
+        var compiledView = _.template(component.Template, params);
+
+        // Insert the compiled view into the DOM
+        componentRoot.html(compiledView);
+
+        // Type any child components
+        TypeComponents(componentRoot);
+        
+        return viewModel;
     }
-    var ExpandComponentCollection = _.bind(_ExpandComponentCollection, Application);
+    var BuildComponent = _.bind(_BuildComponent, Application);
+    
+    function TypeComponents(root)
+    {
+        // Select foreach data-binds and mark components inside as having type "collection"
+        var collectionComponents = root.find('[data-bind*="foreach:"] [data-component]');
+        collectionComponents.attr('data-component-type', 'collection');
+        
+        // Select if and ifnot data-binds and mark components inside as having type "conditional"
+        var conditionalComponents = root.find('[data-bind*="if:"],[data-bind*="ifnot:"] [data-component]');
+        conditionalComponents.attr('data-component-type', 'conditional');
+    }
 
     // Updates the title element when the application name is set
     Application.Name.subscribe(function (value)
@@ -280,12 +297,25 @@ function (ko, _, $, Guid)
     // Add node processor for foreach bindings
     ko.bindingProvider.instance.preprocessNode = function (node)
     {
-        var dataComponent = $(node).data('component');
-
-        if (dataComponent)
+        var componentType = $(node).data('componentType');
+        var componentName = $(node).data('component');
+        
+        if(componentType && componentType == 'collection')
         {
-            ExpandComponentCollection(node);
+            // Find the component description
+            var component = _(Application.Components()).findWhere({ Name: componentName });
+            if(component)
+            {
+                var viewModel = BuildComponent($(node), component, componentType);
+                $(viewModel).triggerHandler('Injected');
+            }
         }
+        else if(componentType && componentType == 'conditional')
+        {
+            Application.InjectComponent(node);
+        }
+        
+        return node;
     };
 
     return Application;
