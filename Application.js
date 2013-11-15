@@ -37,8 +37,13 @@ function (ko, _, $, Guid)
             LoadComponents();
 
             var topLevelComponents = $('[data-component]').toArray();
-            ExpandComponents(topLevelComponents);
+            var expandedModels = ExpandComponents(topLevelComponents);
 
+            // trigger loaded event from bottom up
+            expandedModels.reverse();
+            _(expandedModels).each(function (comp) { $(comp).triggerHandler('Loaded'); });
+
+            // Finally trigger that the application as a whole is loaded
             $(this).triggerHandler('Loaded');
 
             ko.applyBindings(this);
@@ -89,15 +94,13 @@ function (ko, _, $, Guid)
         {
             // Expand the component into the DOM
             var viewModels = ExpandComponent(component);
+            viewModels.reverse();
 
-            // Trigger injection handlers for the inserted treee
-            _(viewModels).each(function (vm)
-            {
-                $(vm).triggerHandler('Injected');
-            });
+            // Trigger loaded handlers from the bottom up
+            _(viewModels).each(function (vm) { $(vm).triggerHandler('Loaded'); });
 
             // Apply bindings to the root level injected node using its parent
-            var parent = viewModels[0].Parent();
+            var parent = _(viewModels).last().Parent();
             ko.applyBindingsToNode(component, null, parent);
 
             // Return the root of the injected componentsQueue
@@ -166,29 +169,6 @@ function (ko, _, $, Guid)
             var componentRoot = $(componentsQueue.shift()); // dequeue operation
             var componentName = componentRoot.data('component');
 
-            // Make sure that the component is not in a foreach block
-            var componentParents = componentRoot.parents();
-
-            // This is inefficient, I only need to look up the the nearest data-component and I can stop 
-            // once I know to skip, fix it
-            var skip = false;
-            _(componentParents).each(function (parent)
-            {
-                var binding = $(parent).data('bind');
-
-                if (binding)
-                {
-                    if (binding.indexOf('foreach:') >= 0)
-                    {
-                        skip = true;
-                    }
-                }
-            });
-
-            // This is ugly, clean it up
-            if (skip)
-                continue;
-
             // Find the component description
             var component = _(this.Components()).findWhere({ Name: componentName });
             if (component)
@@ -256,12 +236,6 @@ function (ko, _, $, Guid)
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
 
-    function _ExpandComponentCollection(component)
-    {
-
-    }
-    var ExpandComponentCollection = _.bind(_ExpandComponentCollection, Application);
-
     // Updates the title element when the application name is set
     Application.Name.subscribe(function (value)
     {
@@ -276,17 +250,6 @@ function (ko, _, $, Guid)
             $('head').append(titleElem);
         }
     });
-
-    // Add node processor for foreach bindings
-    ko.bindingProvider.instance.preprocessNode = function (node)
-    {
-        var dataComponent = $(node).data('component');
-
-        if (dataComponent)
-        {
-            ExpandComponentCollection(node);
-        }
-    };
 
     return Application;
 });
