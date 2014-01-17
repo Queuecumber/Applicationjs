@@ -310,7 +310,7 @@ function (ko, _, $, Guid)
             if(component)
             {
                 var viewModel = BuildComponent($(node), component, componentType);
-                $(viewModel).triggerHandler('Injected');
+                $(viewModel).triggerHandler('Loaded');
             }
         }
         else if(componentType && componentType == 'conditional')
