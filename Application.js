@@ -53,17 +53,28 @@ function (ko, _, $, Guid)
         },
 
         // Activate a component, attached to all child components ViewModels
-        Activate: function (params)
+        Activate: function ()
         {
             this.Visible(true);
-            $(this).triggerHandler('Activate', [params]);
+
+            if (this.View().data('componentType') == 'collection')
+            {
+                var data = ko.dataFor(this.View().get(0));
+
+                var params = [data].concat(arguments);
+                $(this).triggerHandler('Activate', params);
+            }
+            else
+            {
+                $(this).triggerHandler('Activate', arguments);
+            }
         },
 
         // Finishes a component, attached to all child components ViewModels
-        Finish: function (viewName, params)
+        Finish: function ()
         {
             this.Visible(false);
-            $(this).triggerHandler('Finish', [params]);
+            $(this).triggerHandler('Finish', arguments);
         },
 
         // Find an component by id using a depth first search (recursive)
