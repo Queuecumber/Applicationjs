@@ -107,7 +107,7 @@ function (ko, _, $, Guid)
             ko.applyBindingsToNode(component, null, parent);
 
             // Return the root of the injected componentsQueue
-            return viewModels[0];
+            return _(viewModels).last();
         }
     }
 
