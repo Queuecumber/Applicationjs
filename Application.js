@@ -35,7 +35,7 @@ function (ko, _, $, Guid)
         {
             this.Components(components);
             LoadComponents();
-            
+
             // Apply initial component types
             TypeComponents($('body'));
 
@@ -174,21 +174,21 @@ function (ko, _, $, Guid)
 
             // Check the component type to make sure it isnt a collection component
             var componentType = componentRoot.data('componentType');
-            if(componentType != 'collection')
+            if (componentType != 'collection')
             {
                 // Find the component description
                 var component = _(this.Components()).findWhere({ Name: componentName });
                 if (component)
                 {
                     var viewModel = BuildComponent(componentRoot, component);
-                    
+
                     // Add the view model to the list of view models that were processed
                     viewModels.push(viewModel);
 
                     // Find any child data-component nodes and push them onto the queue
                     var childComponents = componentRoot.find('[data-component]').toArray();
                     _(childComponents).each(function (child)
-                    {                    
+                    {
                         componentsQueue.push(child);
                     });
                 }
@@ -198,7 +198,7 @@ function (ko, _, $, Guid)
         return viewModels;
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
-    
+
     function _BuildComponent(componentRoot, component, type)
     {
         // Get the components view parameters
@@ -232,26 +232,26 @@ function (ko, _, $, Guid)
         }
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
-        if(type != 'collection')
+        if (type != 'collection')
         {
             parent[fieldName] = ko.observable(viewModel);
-            
+
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with: ' + fieldName);
         }
         else
         {
-            if(!(fieldName in parent))
+            if (!(fieldName in parent))
             {
                 parent[fieldName] = {};
             }
-            
+
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
-            
+
             // Add databinding for visibility and context to the component root node
-            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');          
+            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
         }
-        
+
         parent.Children.push(viewModel);
         viewModel.Parent = ko.observable(parent);
 
@@ -266,17 +266,17 @@ function (ko, _, $, Guid)
 
         // Type any child components
         TypeComponents(componentRoot);
-        
+
         return viewModel;
     }
     var BuildComponent = _.bind(_BuildComponent, Application);
-    
+
     function TypeComponents(root)
     {
         // Select foreach data-binds and mark components inside as having type "collection"
         var collectionComponents = root.find('[data-bind*="foreach:"] [data-component]');
         collectionComponents.attr('data-component-type', 'collection');
-        
+
         // Select if and ifnot data-binds and mark components inside as having type "conditional"
         var conditionalComponents = root.find('[data-bind*="if:"],[data-bind*="ifnot:"] [data-component]');
         conditionalComponents.attr('data-component-type', 'conditional');
@@ -302,23 +302,23 @@ function (ko, _, $, Guid)
     {
         var componentType = $(node).data('componentType');
         var componentName = $(node).data('component');
-        
-        if(componentType && componentType == 'collection')
+
+        if (componentType && componentType == 'collection')
         {
+            $(node).attr('data-bind', '');
+
             // Find the component description
             var component = _(Application.Components()).findWhere({ Name: componentName });
-            if(component)
+            if (component)
             {
                 var viewModel = BuildComponent($(node), component, componentType);
                 $(viewModel).triggerHandler('Loaded');
             }
         }
-        else if(componentType && componentType == 'conditional')
+        else if (componentType && componentType == 'conditional')
         {
             Application.InjectComponent(node);
         }
-        
-        return node;
     };
 
     return Application;
