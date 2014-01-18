@@ -252,7 +252,7 @@ function (ko, _, $, Guid)
             parent[fieldName] = ko.observable(viewModel);
 
             // Add remove handler to clean up viewmodel when removed from parent
-            viewModel.View.on('DOMNodeRemoved', function ()
+            viewModel.View().on('DOMNodeRemoved', function ()
             {
                 delete parent[fieldName];
                 
@@ -279,7 +279,7 @@ function (ko, _, $, Guid)
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
 
             // Add remove handler to clean up viewmodel when removed from parent
-            viewModel.View.on('DOMNodeRemoved', function ()
+            viewModel.View().on('DOMNodeRemoved', function ()
             {
                 delete parent[fieldName][viewModel.Uid];
                 
