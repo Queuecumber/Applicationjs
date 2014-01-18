@@ -316,8 +316,6 @@ function (ko, _, $, Guid)
 
         if (componentType && componentType == 'collection')
         {
-            $(node).attr('data-bind', '');
-
             // Find the component description
             var component = _(Application.Components()).findWhere({ Name: componentName });
             if (component)
