@@ -185,7 +185,7 @@ function (ko, _, $, Guid)
 
             // Check the component type to make sure it isnt a collection component
             var componentType = componentRoot.data('componentType');
-            if (componentType != 'collection')
+            if (componentType != 'collection' && componentType != 'conditional')
             {
                 // Find the component description
                 var component = _(this.Components()).findWhere({ Name: componentName });
@@ -325,7 +325,7 @@ function (ko, _, $, Guid)
         collectionComponents.attr('data-component-type', 'collection');
 
         // Select if and ifnot data-binds and mark components inside as having type "conditional"
-        var conditionalComponents = root.find('[data-bind*="if:"],[data-bind*="ifnot:"] [data-component]');
+        var conditionalComponents = root.find('[data-bind*="if:"] [data-component],[data-bind*="ifnot:"] [data-component]');
         conditionalComponents.attr('data-component-type', 'conditional');
     }
 
@@ -350,7 +350,7 @@ function (ko, _, $, Guid)
         var componentType = $(node).data('componentType');
         var componentName = $(node).data('component');
 
-        if (componentType && componentType == 'collection')
+        if (componentType)
         {
             // Find the component description
             var component = _(Application.Components()).findWhere({ Name: componentName });
@@ -367,10 +367,6 @@ function (ko, _, $, Guid)
 
                 $(viewModel).triggerHandler('Loaded');
             }
-        }
-        else if (componentType && componentType == 'conditional')
-        {
-            Application.InjectComponent(node);
         }
     };
 
