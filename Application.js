@@ -247,6 +247,12 @@ function (ko, _, $, Guid)
         {
             parent[fieldName] = ko.observable(viewModel);
 
+            // Add remove handler to clean up viewmodel when removed from parent
+            viewModel.View.on('DOMNodeRemoved', function ()
+            {
+                delete parent[fieldName];
+            });
+
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with: ' + fieldName);
         }
@@ -259,12 +265,33 @@ function (ko, _, $, Guid)
 
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
 
+            // Add remove handler to clean up viewmodel when removed from parent
+            viewModel.View.on('DOMNodeRemoved', function ()
+            {
+                delete parent[fieldName][viewModel.Uid];
+                
+                if($.isEmptyObject(parent[fieldName]))
+                {
+                    delete parent[fieldName];
+                }
+            });
+
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
         }
 
         parent.Children.push(viewModel);
         viewModel.Parent = ko.observable(parent);
+        
+        // Add handler to clean up child array when view is removed
+        viewModel.View.on('DOMNodeRemoved', function ()
+        {
+            var childIndex = parent.Children.indexOf(viewModel);
+            if(childIndex > -1)
+            {
+                parent.Children.splice(childIndex, 1);
+            }
+        });
 
         componentRoot.attr('id', viewModel.Uid);
         componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
