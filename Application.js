@@ -57,7 +57,7 @@ function (ko, _, $, Guid)
         {
             this.Visible(true);
 
-            if (this.View().data('componentType') == 'collection')
+            if (this.View && this.View().data('componentType') == 'collection')
             {
                 var data = ko.dataFor(this.View().get(0));
 
