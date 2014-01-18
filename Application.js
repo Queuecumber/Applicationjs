@@ -323,6 +323,14 @@ function (ko, _, $, Guid)
             if (component)
             {
                 var viewModel = BuildComponent($(node), component, componentType);
+
+                var childComponents = viewModel.View().find('[data-component]').toArray();
+                var expandedModels = ExpandComponents(childComponents);
+
+                // trigger loaded event from bottom up
+                expandedModels.reverse();
+                _(expandedModels).each(function (comp) { $(comp).triggerHandler('Loaded'); });
+
                 $(viewModel).triggerHandler('Loaded');
             }
         }
