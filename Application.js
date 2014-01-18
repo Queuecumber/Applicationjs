@@ -263,7 +263,7 @@ function (ko, _, $, Guid)
                 }
                 
                 $(viewModel).triggerHandler('Removed');
-                $(parent).triggerHandler('ChildRemoved', viewModel);
+                $(parent).triggerHandler('ChildRemoved', [viewModel]);
             });
 
             // Add databinding for visibility and context to the component root node
@@ -295,7 +295,7 @@ function (ko, _, $, Guid)
                 }
                 
                 $(viewModel).triggerHandler('Removed');
-                $(parent).triggerHandler('ChildRemoved', viewModel);
+                $(parent).triggerHandler('ChildRemoved', [viewModel]);
             });
 
             // Add databinding for visibility and context to the component root node
