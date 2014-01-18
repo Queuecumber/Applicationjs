@@ -233,7 +233,7 @@ function (ko, _, $, Guid)
         viewModel.Finish = this.Finish;
         viewModel.Uid = Guid.NewGuid();
         viewModel.View = function () { return $('#' + this.Uid); };
-        viewModel.Remove = function() { this.View.remove(); };
+        viewModel.Remove = function() { this.View().remove(); };
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
