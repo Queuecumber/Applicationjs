@@ -252,18 +252,21 @@ function (ko, _, $, Guid)
             parent[fieldName] = ko.observable(viewModel);
 
             // Add remove handler to clean up viewmodel when removed from parent
-            viewModel.View().on('DOMNodeRemoved', function ()
+            $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
             {
-                delete parent[fieldName];
-                
-                var childIndex = parent.Children.indexOf(viewModel);
-                if(childIndex > -1)
+                if(event.originalEvent.srcElement.id == viewModel.Uid)
                 {
-                    parent.Children.splice(childIndex, 1);
+                    delete parent[fieldName];
+                    
+                    var childIndex = parent.Children.indexOf(viewModel);
+                    if(childIndex > -1)
+                    {
+                        parent.Children.splice(childIndex, 1);
+                    }
+                    
+                    $(viewModel).triggerHandler('Removed');
+                    $(parent).triggerHandler('ChildRemoved', [viewModel]);
                 }
-                
-                $(viewModel).triggerHandler('Removed');
-                $(parent).triggerHandler('ChildRemoved', [viewModel]);
             });
 
             // Add databinding for visibility and context to the component root node
@@ -279,23 +282,26 @@ function (ko, _, $, Guid)
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
 
             // Add remove handler to clean up viewmodel when removed from parent
-            viewModel.View().on('DOMNodeRemoved', function ()
+            $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
             {
-                delete parent[fieldName][viewModel.Uid];
-                
-                if($.isEmptyObject(parent[fieldName]))
+                if(event.originalEvent.srcElement.id == viewModel.Uid)
                 {
-                    delete parent[fieldName];
+                    delete parent[fieldName][viewModel.Uid];
+                    
+                    if($.isEmptyObject(parent[fieldName]))
+                    {
+                        delete parent[fieldName];
+                    }
+                    
+                    var childIndex = parent.Children.indexOf(viewModel);
+                    if(childIndex > -1)
+                    {
+                        parent.Children.splice(childIndex, 1);
+                    }
+                    
+                    $(viewModel).triggerHandler('Removed');
+                    $(parent).triggerHandler('ChildRemoved', [viewModel]);
                 }
-                
-                var childIndex = parent.Children.indexOf(viewModel);
-                if(childIndex > -1)
-                {
-                    parent.Children.splice(childIndex, 1);
-                }
-                
-                $(viewModel).triggerHandler('Removed');
-                $(parent).triggerHandler('ChildRemoved', [viewModel]);
             });
 
             // Add databinding for visibility and context to the component root node
