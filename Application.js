@@ -33,6 +33,8 @@ function (ko, _, $, Guid)
         // Composes the page and applies data bindings
         Compose: function (components)
         {
+            $('body').attr('data-bind', 'visible: Visible');
+
             this.Components(components);
             LoadComponents();
 
@@ -233,7 +235,7 @@ function (ko, _, $, Guid)
         viewModel.Finish = this.Finish;
         viewModel.Uid = Guid.NewGuid();
         viewModel.View = function () { return $('#' + this.Uid); };
-        viewModel.Remove = function() { this.View().remove(); };
+        viewModel.Remove = function () { this.View().remove(); };
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -246,7 +248,7 @@ function (ko, _, $, Guid)
         // Add the viewmodel to its parent and add a parent property to the viewmodel
         parent.Children.push(viewModel);
         viewModel.Parent = ko.observable(parent);
-        
+
         if (type != 'collection')
         {
             parent[fieldName] = ko.observable(viewModel);
@@ -254,16 +256,16 @@ function (ko, _, $, Guid)
             // Add remove handler to clean up viewmodel when removed from parent
             $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
             {
-                if(event.originalEvent.srcElement.id == viewModel.Uid)
+                if (event.originalEvent.srcElement.id == viewModel.Uid)
                 {
                     delete parent[fieldName];
-                    
+
                     var childIndex = parent.Children.indexOf(viewModel);
-                    if(childIndex > -1)
+                    if (childIndex > -1)
                     {
                         parent.Children.splice(childIndex, 1);
                     }
-                    
+
                     $(viewModel).triggerHandler('Removed');
                     $(parent).triggerHandler('ChildRemoved', [viewModel]);
                 }
@@ -284,21 +286,21 @@ function (ko, _, $, Guid)
             // Add remove handler to clean up viewmodel when removed from parent
             $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
             {
-                if(event.originalEvent.srcElement.id == viewModel.Uid)
+                if (event.originalEvent.srcElement.id == viewModel.Uid)
                 {
                     delete parent[fieldName][viewModel.Uid];
-                    
-                    if($.isEmptyObject(parent[fieldName]))
+
+                    if ($.isEmptyObject(parent[fieldName]))
                     {
                         delete parent[fieldName];
                     }
-                    
+
                     var childIndex = parent.Children.indexOf(viewModel);
-                    if(childIndex > -1)
+                    if (childIndex > -1)
                     {
                         parent.Children.splice(childIndex, 1);
                     }
-                    
+
                     $(viewModel).triggerHandler('Removed');
                     $(parent).triggerHandler('ChildRemoved', [viewModel]);
                 }
