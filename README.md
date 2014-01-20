@@ -1,4 +1,4 @@
 Applicationjs
 =============
 
-Library for building web applications using MVVC built on Knockout
+Library for building web applications using MVVM built on Knockout
