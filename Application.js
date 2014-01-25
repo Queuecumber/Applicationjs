@@ -54,31 +54,6 @@ function (ko, _, $, Guid)
             ko.applyBindings(this);
         },
 
-        // Activate a component, attached to all child components ViewModels
-        Activate: function ()
-        {
-            this.Visible(true);
-
-            if (this.View && this.View().data('componentType') == 'collection')
-            {
-                var data = ko.dataFor(this.View().get(0));
-
-                var params = [data].concat(arguments);
-                this.Activated.Trigger.apply(this.Activated, params);
-            }
-            else
-            {
-                this.Activated.Trigger.apply(this.Activated, arguments);
-            }
-        },
-
-        // Finishes a component, attached to all child components ViewModels
-        Finish: function ()
-        {
-            this.Visible(false);
-            this.Finished.Trigger.apply(this.Finished, arguments);
-        },
-
         // Find an component by id using a depth first search (recursive)
         Find: function (componentId)
         {
@@ -152,14 +127,60 @@ function (ko, _, $, Guid)
 			{				
 				return $(this).triggerHandler(this.Id, arguments);
 			}, this);
+		},
+		
+		ViewModel: function (componentName, fieldName, params)
+		{
+			this.Visible = ko.observable(false); 
+			
+			this.Name = fieldName;
+			this.Component = componentName;
+			this.ViewParameters = params;
+			
+			this.Parent = ko.observable({});
+			this.Children = ko.observableArray([]);
+			this.Find = _.bind(Application.Find, this);
+			
+			this.Loaded = new Application.Event();
+			
+			this.Activate = _.bind(function ()
+			{
+				this.Visible(true);
+
+				if (this.View && this.View().data('componentType') == 'collection')
+				{
+					var data = ko.dataFor(this.View().get(0));
+
+					var params = [data].concat(arguments);
+					this.Activated.Trigger.apply(this.Activated, params);
+				}
+				else
+				{
+					this.Activated.Trigger.apply(this.Activated, arguments);
+				}
+			}, this);
+			this.Activated = new Application.Event();
+			
+			this.Finish = _.bind(function ()
+			{
+				this.Visible(false);
+				this.Finished.Trigger.apply(this.Finished, arguments);
+			}, this);
+			this.Finished = new Application.Event();
+			
+			this.Uid = Guid.NewGuid();
+			
+			this.View = _.bind(function () { return $('#' + this.Uid); }, this);
+			
+			this.Remove = _.bind(function () { this.View().remove(); }, this);
+			this.Removed = new Application.Event();
+			this.ChildRemoved = new Application.Event();
 		}
     }
 	
 	Application.Loaded = new Application.Event();
 		
-	Application.Activated = new Application.Event();
-	
-	Application.Finished = new Application.Event();
+	Application.ChildRemoved = new Application.Event();
 
     // Application private interface
 
@@ -262,22 +283,9 @@ function (ko, _, $, Guid)
         var fieldName = componentRoot.data('name');
 
         // Create the view model and add standard fields
-        var viewModel = new component.ViewModel();
-        viewModel.Visible = ko.observable(false); // Hidden by default
-        viewModel.Name = fieldName;
-        viewModel.ViewParameters = params;
-        viewModel.Children = ko.observableArray();
-        viewModel.Find = this.Find;
-		viewModel.Loaded = new this.Event();
-        viewModel.Activate = this.Activate;
-		viewModel.Activated = new this.Event();
-        viewModel.Finish = this.Finish;
-		viewModel.Finished = new this.Event();
-        viewModel.Uid = Guid.NewGuid();
-        viewModel.View = function () { return $('#' + this.Uid); };
-        viewModel.Remove = function () { this.View().remove(); };
-		viewModel.Removed = new this.Event();
-		viewModel.ChildRemoved = new this.Event();
+        var viewModelProto = new Application.ViewModel(component.Name, fieldName, params);
+		component.ViewModel.prototype = viewModelProto;
+		var viewModel = new component.ViewModel();
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -289,7 +297,7 @@ function (ko, _, $, Guid)
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
         parent.Children.push(viewModel);
-        viewModel.Parent = ko.observable(parent);
+        viewModel.Parent(parent);
 
         if (type != 'collection')
         {
