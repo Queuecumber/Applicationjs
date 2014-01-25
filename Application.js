@@ -46,7 +46,7 @@ function (ko, _, $, Guid)
 
             // trigger loaded event from bottom up
             expandedModels.reverse();
-            _(expandedModels).each(function (comp) { $(comp).triggerHandler('Loaded'); });
+            _(expandedModels).each(function (comp) { comp.Trigger('Loaded'); });
 
             // Finally trigger that the application as a whole is loaded
             $(this).triggerHandler('Loaded');
@@ -113,7 +113,7 @@ function (ko, _, $, Guid)
             viewModels.reverse();
 
             // Trigger loaded handlers from the bottom up
-            _(viewModels).each(function (vm) { $(vm).triggerHandler('Loaded'); });
+            _(viewModels).each(function (vm) { vm.Trigger('Loaded'); });
 
             // Apply bindings to the root level injected node using its parent
             var parent = _(viewModels).last().Parent();
@@ -121,7 +121,13 @@ function (ko, _, $, Guid)
 
             // Return the root of the injected componentsQueue
             return _(viewModels).last();
-        }
+        },
+		
+		On: function () { return $(this).on.apply($(this), arguments); },
+		
+		Off: function () { return $(this).off.apply($(this), arguments); },
+		
+		Trigger: function () { var argsArray = $.makeArray(arguments); return $(this).triggerHandler.apply($(this), [argsArray.shift(), argsArray]); }
     }
 
     // Application private interface
@@ -236,9 +242,9 @@ function (ko, _, $, Guid)
         viewModel.Uid = Guid.NewGuid();
         viewModel.View = function () { return $('#' + this.Uid); };
         viewModel.Remove = function () { this.View().remove(); };
-		viewModel.On = function () { return $(this).on.apply($(this), arguments); };
-		viewModel.Off = function () { return $(this).off.apply($(this), arguments); };
-		viewModel.Trigger = function () { var argsArray = $.makeArray(arguments); return $(this).triggerHandler.apply($(this), [argsArray.shift(), argsArray]); };
+		viewModel.On = this.On;
+		viewModel.Off = this.Off;
+		viewModel.Trigger = this.Trigger;
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -269,8 +275,8 @@ function (ko, _, $, Guid)
                         parent.Children.splice(childIndex, 1);
                     }
 
-                    $(viewModel).triggerHandler('Removed');
-                    $(parent).triggerHandler('ChildRemoved', [viewModel]);
+                    viewModel.Trigger('Removed');
+                    parent.Trigger('ChildRemoved', viewModel);
                 }
             });
 
@@ -304,8 +310,8 @@ function (ko, _, $, Guid)
                         parent.Children.splice(childIndex, 1);
                     }
 
-                    $(viewModel).triggerHandler('Removed');
-                    $(parent).triggerHandler('ChildRemoved', [viewModel]);
+                    viewModel.Trigger('Removed');
+                    parent.Trigger('ChildRemoved', viewModel);
                 }
             });
 
@@ -374,9 +380,9 @@ function (ko, _, $, Guid)
 
                 // trigger loaded event from bottom up
                 expandedModels.reverse();
-                _(expandedModels).each(function (comp) { $(comp).triggerHandler('Loaded'); });
+                _(expandedModels).each(function (comp) { comp.Trigger('Loaded'); });
 
-                $(viewModel).triggerHandler('Loaded');
+                viewModel.Trigger('Loaded');
             }
         }
     };
