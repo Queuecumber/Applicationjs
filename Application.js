@@ -46,10 +46,10 @@ function (ko, _, $, Guid)
 
             // trigger loaded event from bottom up
             expandedModels.reverse();
-            _(expandedModels).each(function (comp) { comp.Trigger('Loaded'); });
+            _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
 
             // Finally trigger that the application as a whole is loaded
-            $(this).triggerHandler('Loaded');
+            this.Loaded.Trigger();
 
             ko.applyBindings(this);
         },
@@ -64,11 +64,11 @@ function (ko, _, $, Guid)
                 var data = ko.dataFor(this.View().get(0));
 
                 var params = [data].concat(arguments);
-                $(this).triggerHandler('Activate', params);
+                this.Activated.Trigger.apply(this.Activated, params);
             }
             else
             {
-                $(this).triggerHandler('Activate', arguments);
+                this.Activated.Trigger.apply(this.Activated, arguments);
             }
         },
 
@@ -76,7 +76,7 @@ function (ko, _, $, Guid)
         Finish: function ()
         {
             this.Visible(false);
-            $(this).triggerHandler('Finish', arguments);
+            this.Finished.Trigger.apply(this.Finished, arguments);
         },
 
         // Find an component by id using a depth first search (recursive)
@@ -113,7 +113,7 @@ function (ko, _, $, Guid)
             viewModels.reverse();
 
             // Trigger loaded handlers from the bottom up
-            _(viewModels).each(function (vm) { vm.Trigger('Loaded'); });
+            _(viewModels).each(function (vm) { vm.Loaded.Trigger(); });
 
             // Apply bindings to the root level injected node using its parent
             var parent = _(viewModels).last().Parent();
@@ -123,12 +123,43 @@ function (ko, _, $, Guid)
             return _(viewModels).last();
         },
 		
-		On: function () { return $(this).on.apply($(this), arguments); },
-		
-		Off: function () { return $(this).off.apply($(this), arguments); },
-		
-		Trigger: function () { var argsArray = $.makeArray(arguments); return $(this).triggerHandler.apply($(this), [argsArray.shift(), argsArray]); }
+		Event: function (id) 
+		{		
+			if(id)
+			{
+				this.Id = id;
+			}
+			else
+			{
+				this.Id = Guid.NewGuid();
+			}
+			
+			this.On = _.bind(function ()
+			{	
+				var args = $.makeArray(arguments);
+				
+				return $(this).on.apply($(this), [this.Id].concat(args)); 
+			}, this);
+			
+			this.Off = _.bind(function ()
+			{
+				var args = $.makeArray(arguments);
+			
+				return $(this).off.apply($(this), [this.Id].concat(args));
+			}, this);
+			
+			this.Trigger = _.bind(function ()
+			{				
+				return $(this).triggerHandler(this.Id, arguments);
+			}, this);
+		}
     }
+	
+	Application.Loaded = new Application.Event();
+		
+	Application.Activated = new Application.Event();
+	
+	Application.Finished = new Application.Event();
 
     // Application private interface
 
@@ -237,14 +268,16 @@ function (ko, _, $, Guid)
         viewModel.ViewParameters = params;
         viewModel.Children = ko.observableArray();
         viewModel.Find = this.Find;
+		viewModel.Loaded = new this.Event();
         viewModel.Activate = this.Activate;
+		viewModel.Activated = new this.Event();
         viewModel.Finish = this.Finish;
+		viewModel.Finished = new this.Event();
         viewModel.Uid = Guid.NewGuid();
         viewModel.View = function () { return $('#' + this.Uid); };
         viewModel.Remove = function () { this.View().remove(); };
-		viewModel.On = this.On;
-		viewModel.Off = this.Off;
-		viewModel.Trigger = this.Trigger;
+		viewModel.Removed = new this.Event();
+		viewModel.ChildRemoved = new this.Event();
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -275,8 +308,8 @@ function (ko, _, $, Guid)
                         parent.Children.splice(childIndex, 1);
                     }
 
-                    viewModel.Trigger('Removed');
-                    parent.Trigger('ChildRemoved', viewModel);
+                    viewModel.Removed.Trigger();
+                    parent.ChildRemoved.Trigger(viewModel);
                 }
             });
 
@@ -310,8 +343,8 @@ function (ko, _, $, Guid)
                         parent.Children.splice(childIndex, 1);
                     }
 
-                    viewModel.Trigger('Removed');
-                    parent.Trigger('ChildRemoved', viewModel);
+                    viewModel.Removed.Trigger();
+                    parent.ChildRemoved.Trigger(viewModel);
                 }
             });
 
@@ -380,9 +413,9 @@ function (ko, _, $, Guid)
 
                 // trigger loaded event from bottom up
                 expandedModels.reverse();
-                _(expandedModels).each(function (comp) { comp.Trigger('Loaded'); });
+                _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
 
-                viewModel.Trigger('Loaded');
+                viewModel.Loaded.Trigger();
             }
         }
     };
