@@ -236,6 +236,9 @@ function (ko, _, $, Guid)
         viewModel.Uid = Guid.NewGuid();
         viewModel.View = function () { return $('#' + this.Uid); };
         viewModel.Remove = function () { this.View().remove(); };
+		viewModel.On = function () { return $(this).on.apply($(this), arguments); };
+		viewModel.Off = function () { return $(this).off.apply($(this), arguments); };
+		viewModel.Trigger = function () { var argsArray = $.makeArray(arguments); return $(this).triggerHandler.apply($(this), [argsArray.shift(), argsArray]); };
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
