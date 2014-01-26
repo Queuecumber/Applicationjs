@@ -284,8 +284,9 @@ function (ko, _, $, Guid)
 
         // Create the view model and add standard fields
         var viewModelProto = new Application.ViewModel(component.Name, fieldName, params);
-		component.ViewModel.prototype = viewModelProto;
-		var viewModel = new component.ViewModel();
+        var componentCopy = $.extend(true, {}, component);
+		componentCopy.ViewModel.prototype = viewModelProto;
+		var viewModel = new componentCopy.ViewModel();
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
