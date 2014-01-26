@@ -194,9 +194,10 @@ function (ko, _, $, Guid)
 		}
     }
 	
-	Application.Loaded = new Application.Event();
+	// Application events
+	Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
 		
-	Application.ChildRemoved = new Application.Event();
+	Application.ChildRemoved = new Application.Event(); // Triggered when a direct child of Application is removed
 
     // Application private interface
 
