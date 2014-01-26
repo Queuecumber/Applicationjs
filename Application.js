@@ -148,10 +148,15 @@ function (ko, _, $, Guid)
 			// Loaded event, fired after the components view is added and its viewmodel is set up
 			this.Loaded = new Application.Event();
 			
-			// Activates the component, any number of arguments can be passed to the activation handlers
+			// Tracks if a component is active, not settable
+			var isActive = false;
+			this.Active = function () { return isActive; } // Tracks if the component is active
+			
+			// Activates the component, any number of arguments can be passed to the activation handlers			
 			this.Activate = _.bind(function ()
 			{
 				this.Visible(true);
+				isActive = true;
 
 				if (this.View && this.View().data('componentType') == 'collection')
 				{
@@ -171,6 +176,7 @@ function (ko, _, $, Guid)
 			this.Finish = _.bind(function ()
 			{
 				this.Visible(false);
+				isActive = false;
 				this.Finished.Trigger.apply(this.Finished, arguments);
 			}, this);
 			this.Finished = new Application.Event(); // Finish event
