@@ -98,8 +98,10 @@ function (ko, _, $, Guid)
             return _(viewModels).last();
         },
 		
+		// Event prototype
 		Event: function (id) 
 		{		
+		    // Generate a unique id if one was not provided
 			if(id)
 			{
 				this.Id = id;
@@ -109,6 +111,7 @@ function (ko, _, $, Guid)
 				this.Id = Guid.NewGuid();
 			}
 			
+			// Attaches an event handler
 			this.On = _.bind(function ()
 			{	
 				var args = $.makeArray(arguments);
@@ -116,29 +119,36 @@ function (ko, _, $, Guid)
 				return $(this).on.apply($(this), [this.Id].concat(args)); 
 			}, this);
 			
+			// Detaches an event handler
 			this.Off = _.bind(function ()
 			{
 				var args = $.makeArray(arguments);
 			
 				return $(this).off.apply($(this), [this.Id].concat(args));
 			}, this);
-			
+
+            // Triggers the event			
 			this.Trigger = _.bind(function ()
 			{				
 				return $(this).triggerHandler(this.Id, arguments);
 			}, this);
 		},
 		
+		// Viewmodel prototype parent
 		ViewModel: function ()
 		{
+		    // Observable property controls visibility
 			this.Visible = ko.observable(false);
 			
+			// Parent, children, and find child function
 			this.Parent = ko.observable({});
 			this.Children = ko.observableArray([]);
 			this.Find = _.bind(Application.Find, this);
 			
+			// Loaded event, fired after the components view is added and its viewmodel is set up
 			this.Loaded = new Application.Event();
 			
+			// Activates the component, any number of arguments can be passed to the activation handlers
 			this.Activate = _.bind(function ()
 			{
 				this.Visible(true);
@@ -155,22 +165,26 @@ function (ko, _, $, Guid)
 					this.Activated.Trigger.apply(this.Activated, arguments);
 				}
 			}, this);
-			this.Activated = new Application.Event();
+			this.Activated = new Application.Event(); // Activated event
 			
+			// Finishes the component, any number of arguments can be passed to the finish handlers
 			this.Finish = _.bind(function ()
 			{
 				this.Visible(false);
 				this.Finished.Trigger.apply(this.Finished, arguments);
 			}, this);
-			this.Finished = new Application.Event();
+			this.Finished = new Application.Event(); // Finish event
 			
+			// Unique identifier
 			this.Uid = Guid.NewGuid();
 			
+			// Gets the root of the components view
 			this.View = _.bind(function () { return $('#' + this.Uid); }, this);
 			
+			// Removes the component's view which triggers removal of the entire component
 			this.Remove = _.bind(function () { this.View().remove(); }, this);
-			this.Removed = new Application.Event();
-			this.ChildRemoved = new Application.Event();
+			this.Removed = new Application.Event(); // Removed event
+			this.ChildRemoved = new Application.Event(); // Child removed event
 		}
     }
 	
