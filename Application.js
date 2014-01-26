@@ -129,13 +129,9 @@ function (ko, _, $, Guid)
 			}, this);
 		},
 		
-		ViewModel: function (componentName, fieldName, params)
+		ViewModel: function ()
 		{
-			this.Visible = ko.observable(false); 
-			
-			this.Name = fieldName;
-			this.Component = componentName;
-			this.ViewParameters = params;
+			this.Visible = ko.observable(false);
 			
 			this.Parent = ko.observable({});
 			this.Children = ko.observableArray([]);
@@ -283,7 +279,7 @@ function (ko, _, $, Guid)
         var fieldName = componentRoot.data('name');
 
         // Create the view model and add standard fields
-        var viewModelProto = new Application.ViewModel(component.Name, fieldName, params);
+        var viewModelProto = new Application.ViewModel();
         var componentCopy = $.extend(true, {}, component);
 		componentCopy.ViewModel.prototype = viewModelProto;
 		var viewModel = new componentCopy.ViewModel();
