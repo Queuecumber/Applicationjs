@@ -136,7 +136,7 @@ function (ko, _, $, Guid)
 		
 		// Viewmodel prototype parent
 		ViewModel: function ()
-		{
+		{		
 		    // Observable property controls visibility
 			this.Visible = ko.observable(false);
 			
@@ -286,6 +286,63 @@ function (ko, _, $, Guid)
         return viewModels;
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
+    
+    // Dom node removal observer, used to clean up viewmodels when their views are removed
+    var domObserver = new MutationObserver(function (mutations)
+    {
+        // This pipeline is optimized to remove any extra processing
+        _.chain(mutations)
+        .filter(function (mutation) { return mutation.removedNodes.length > 0; }) // Remove any mutation events that arent removals
+        .pluck('removedNodes') // Operate only on the lists of removed nodes
+        .map(function (nodeList) { return $.makeArray(nodeList); }) // Turn the nodelists into an array that underscore can manipulate
+        .flatten() // Flatten the removals into one array of data to prevent nested pipelines
+        .filter(function (node) { return $(node).data('component'); }) // Remove any DOM events not referring to component nodes
+        .each(function (node) // Finally, process each component node
+        {
+            // Get the unique id of the component
+            var uid = $(node).attr('id');
+            
+            // Find the viewmodel
+            var viewModel = Application.Find(uid);
+            
+            // If no viewmodel was found, its parent was removed already, this can be ignored
+            if(viewModel)
+            {
+                // Get the parent and field name
+                var fieldName = $(node).data('name');
+                var parent = viewModel.Parent();
+                
+                // Collection nodes need extra processing
+                if($(node).data('componentType') == 'collection')
+                {
+                    // Remove the viewmodel from the collection in the parent
+                    delete parent[fieldName][viewModel.Uid];
+
+                    // If the collection is empty, then delete it entirely 
+                    if ($.isEmptyObject(parent[fieldName]))
+                    {
+                        delete parent[fieldName];
+                    }
+                }
+                else
+                {
+                    // Non collection components can have their property removed from the parent
+                    delete parent[fieldName];
+                }
+
+                // Remove the component from the parents Child list
+                var childIndex = parent.Children.indexOf(viewModel);
+                if (childIndex > -1)
+                {
+                    parent.Children.splice(childIndex, 1);
+                }
+
+                // Trigger removal events
+                viewModel.Removed.Trigger();
+                parent.ChildRemoved.Trigger(viewModel);
+            }
+        });
+    });
 
     function _BuildComponent(componentRoot, component, type)
     {
@@ -319,60 +376,28 @@ function (ko, _, $, Guid)
 
         if (type != 'collection')
         {
+            // Add component property to parent 
             parent[fieldName] = ko.observable(viewModel);
-
-            // Add remove handler to clean up viewmodel when removed from parent
-            $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
-            {
-                if (event.originalEvent.srcElement.id == viewModel.Uid)
-                {
-                    delete parent[fieldName];
-
-                    var childIndex = parent.Children.indexOf(viewModel);
-                    if (childIndex > -1)
-                    {
-                        parent.Children.splice(childIndex, 1);
-                    }
-
-                    viewModel.Removed.Trigger();
-                    parent.ChildRemoved.Trigger(viewModel);
-                }
-            });
+            
+            // Listen for removal events
+            domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with: ' + fieldName);
         }
         else
         {
+            // Add component collection property to parent if it isnt present
             if (!(fieldName in parent))
             {
                 parent[fieldName] = {};
             }
 
+            // Add the component to the collection property
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
-
-            // Add remove handler to clean up viewmodel when removed from parent
-            $('body').on('DOMNodeRemoved', '#' + viewModel.Uid, function (event)
-            {
-                if (event.originalEvent.srcElement.id == viewModel.Uid)
-                {
-                    delete parent[fieldName][viewModel.Uid];
-
-                    if ($.isEmptyObject(parent[fieldName]))
-                    {
-                        delete parent[fieldName];
-                    }
-
-                    var childIndex = parent.Children.indexOf(viewModel);
-                    if (childIndex > -1)
-                    {
-                        parent.Children.splice(childIndex, 1);
-                    }
-
-                    viewModel.Removed.Trigger();
-                    parent.ChildRemoved.Trigger(viewModel);
-                }
-            });
+            
+            // Listen for removal events
+            domObserver.observe(componentRoot.parent().get(0), { childList: true });            
 
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
@@ -445,6 +470,6 @@ function (ko, _, $, Guid)
             }
         }
     };
-
+    
     return Application;
 });
