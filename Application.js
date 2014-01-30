@@ -162,7 +162,9 @@ function (ko, _, $, Guid)
 				{
 					var data = ko.dataFor(this.View().get(0));
 
-					var params = [data].concat(arguments);
+					var args = $.makeArray(arguments);
+					
+					var params = args.concat(data);
 					this.Activated.Trigger.apply(this.Activated, params);
 				}
 				else
