@@ -134,6 +134,26 @@ function (ko, _, $, Guid)
             }, this);
         },
 
+        RoutedEvent: function (id)
+        {
+            this.prototype = new Event(id);
+
+            this.TriggerRoute = _.bind(function ()
+            {
+                this.Trigger.apply(this, arguments);
+            }, this);
+
+            this.AddRoute = _.bind(function (ev)
+            {
+                ev.On(this.TriggerRoute);
+            }, this);
+
+            this.RemoveRoute = _.bind(function (ev)
+            {
+                ev.Off(this.TriggerRoute);
+            });
+        },
+
         // Viewmodel prototype parent
         ViewModel: function ()
         {
@@ -208,8 +228,6 @@ function (ko, _, $, Guid)
                         .value();
             }, this);
         }
-
-        
     }
 
     // Application events
