@@ -386,6 +386,14 @@ function (ko, _, $, Guid)
             // Add the component to the collection property
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
 
+            for(var prop in parent[fieldName])
+            {
+                if (parent[fieldName][prop] instanceof Application.Event)
+                {
+                    viewModel[prop] = parent[fieldName][prop];
+                }
+            }
+
             // Listen for removal events
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
@@ -411,6 +419,23 @@ function (ko, _, $, Guid)
         {
             var collectionName = $(collection).data('name');
             viewModel[collectionName] = {};
+
+            var collectionComponentName = $(collection).data('component');
+            var collectionComponentPrototype = _(Application.Components()).findWhere({ Name: collectionComponentName });
+
+            var viewModelProto = new Application.ViewModel();
+            var componentCopy = $.extend(true, {}, collectionComponentPrototype);
+            componentCopy.ViewModel.prototype = viewModelProto;
+
+            var collectionComponentInstance = new componentCopy.ViewModel();
+
+            for(var prop in collectionComponentInstance)
+            {
+                if (collectionComponentInstance[prop] instanceof Application.Event)
+                {
+                    viewModel[collectionName][prop] = new Application.Event();
+                }
+            }
         });
 
         return viewModel;
