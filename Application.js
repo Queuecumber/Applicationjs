@@ -97,109 +97,109 @@ function (ko, _, $, Guid)
             // Return the root of the injected componentsQueue
             return _(viewModels).last();
         },
-		
-		// Event prototype
-		Event: function (id) 
-		{		
-		    // Generate a unique id if one was not provided
-			if(id)
-			{
-				this.Id = id;
-			}
-			else
-			{
-				this.Id = Guid.NewGuid();
-			}
-			
-			// Attaches an event handler
-			this.On = _.bind(function ()
-			{	
-				var args = $.makeArray(arguments);
-				
-				return $(this).on.apply($(this), [this.Id].concat(args)); 
-			}, this);
-			
-			// Detaches an event handler
-			this.Off = _.bind(function ()
-			{
-				var args = $.makeArray(arguments);
-			
-				return $(this).off.apply($(this), [this.Id].concat(args));
-			}, this);
+
+        // Event prototype
+        Event: function (id)
+        {
+            // Generate a unique id if one was not provided
+            if (id)
+            {
+                this.Id = id;
+            }
+            else
+            {
+                this.Id = Guid.NewGuid();
+            }
+
+            // Attaches an event handler
+            this.On = _.bind(function ()
+            {
+                var args = $.makeArray(arguments);
+
+                return $(this).on.apply($(this), [this.Id].concat(args));
+            }, this);
+
+            // Detaches an event handler
+            this.Off = _.bind(function ()
+            {
+                var args = $.makeArray(arguments);
+
+                return $(this).off.apply($(this), [this.Id].concat(args));
+            }, this);
 
             // Triggers the event			
-			this.Trigger = _.bind(function ()
-			{				
-				return $(this).triggerHandler(this.Id, arguments);
-			}, this);
-		},
-		
-		// Viewmodel prototype parent
-		ViewModel: function ()
-		{		
-		    // Observable property controls visibility
-			this.Visible = ko.observable(false);
-			
-			// Parent, children, and find child function
-			this.Parent = ko.observable({});
-			this.Children = ko.observableArray([]);
-			this.Find = _.bind(Application.Find, this);
-			
-			// Loaded event, fired after the components view is added and its viewmodel is set up
-			this.Loaded = new Application.Event();
-			
-			// Tracks if a component is active, not settable
-			var isActive = false;
-			this.Active = function () { return isActive; } // Tracks if the component is active
-			
-			// Activates the component, any number of arguments can be passed to the activation handlers			
-			this.Activate = _.bind(function ()
-			{
-				this.Visible(true);
-				isActive = true;
+            this.Trigger = _.bind(function ()
+            {
+                return $(this).triggerHandler(this.Id, arguments);
+            }, this);
+        },
 
-				if (this.View && this.View().data('componentType') == 'collection')
-				{
-					var data = ko.dataFor(this.View().get(0));
+        // Viewmodel prototype parent
+        ViewModel: function ()
+        {
+            // Observable property controls visibility
+            this.Visible = ko.observable(false);
 
-					var args = $.makeArray(arguments);
-					
-					var params = args.concat(data);
-					this.Activated.Trigger.apply(this.Activated, params);
-				}
-				else
-				{
-					this.Activated.Trigger.apply(this.Activated, arguments);
-				}
-			}, this);
-			this.Activated = new Application.Event(); // Activated event
-			
-			// Finishes the component, any number of arguments can be passed to the finish handlers
-			this.Finish = _.bind(function ()
-			{
-				this.Visible(false);
-				isActive = false;
-				this.Finished.Trigger.apply(this.Finished, arguments);
-			}, this);
-			this.Finished = new Application.Event(); // Finish event
-			
-			// Unique identifier
-			this.Uid = Guid.NewGuid();
-			
-			// Gets the root of the components view
-			this.View = _.bind(function () { return $('#' + this.Uid); }, this);
-			
-			// Removes the component's view which triggers removal of the entire component
-			this.Remove = _.bind(function () { this.View().remove(); }, this);
-			this.Removed = new Application.Event(); // Removed event
-			this.ChildRemoved = new Application.Event(); // Child removed event
-		}
+            // Parent, children, and find child function
+            this.Parent = ko.observable({});
+            this.Children = ko.observableArray([]);
+            this.Find = _.bind(Application.Find, this);
+
+            // Loaded event, fired after the components view is added and its viewmodel is set up
+            this.Loaded = new Application.Event();
+
+            // Tracks if a component is active, not settable
+            var isActive = false;
+            this.Active = function () { return isActive; } // Tracks if the component is active
+
+            // Activates the component, any number of arguments can be passed to the activation handlers			
+            this.Activate = _.bind(function ()
+            {
+                this.Visible(true);
+                isActive = true;
+
+                if (this.View && this.View().data('componentType') == 'collection')
+                {
+                    var data = ko.dataFor(this.View().get(0));
+
+                    var args = $.makeArray(arguments);
+
+                    var params = args.concat(data);
+                    this.Activated.Trigger.apply(this.Activated, params);
+                }
+                else
+                {
+                    this.Activated.Trigger.apply(this.Activated, arguments);
+                }
+            }, this);
+            this.Activated = new Application.Event(); // Activated event
+
+            // Finishes the component, any number of arguments can be passed to the finish handlers
+            this.Finish = _.bind(function ()
+            {
+                this.Visible(false);
+                isActive = false;
+                this.Finished.Trigger.apply(this.Finished, arguments);
+            }, this);
+            this.Finished = new Application.Event(); // Finish event
+
+            // Unique identifier
+            this.Uid = Guid.NewGuid();
+
+            // Gets the root of the components view
+            this.View = _.bind(function () { return $('#' + this.Uid); }, this);
+
+            // Removes the component's view which triggers removal of the entire component
+            this.Remove = _.bind(function () { this.View().remove(); }, this);
+            this.Removed = new Application.Event(); // Removed event
+            this.ChildRemoved = new Application.Event(); // Child removed event
+        }
     }
-	
-	// Application events
-	Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
-		
-	Application.ChildRemoved = new Application.Event(); // Triggered when a direct child of Application is removed
+
+    // Application events
+    Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
+
+    Application.ChildRemoved = new Application.Event(); // Triggered when a direct child of Application is removed
 
     // Application private interface
 
@@ -288,7 +288,7 @@ function (ko, _, $, Guid)
         return viewModels;
     }
     var ExpandComponents = _.bind(_ExpandComponents, Application);
-    
+
     // Dom node removal observer, used to clean up viewmodels when their views are removed
     var domObserver = new MutationObserver(function (mutations)
     {
@@ -303,28 +303,22 @@ function (ko, _, $, Guid)
         {
             // Get the unique id of the component
             var uid = $(node).attr('id');
-            
+
             // Find the viewmodel
             var viewModel = Application.Find(uid);
-            
+
             // If no viewmodel was found, its parent was removed already, this can be ignored
-            if(viewModel)
+            if (viewModel)
             {
                 // Get the parent and field name
                 var fieldName = $(node).data('name');
                 var parent = viewModel.Parent();
-                
+
                 // Collection nodes need extra processing
-                if($(node).data('componentType') == 'collection')
+                if ($(node).data('componentType') == 'collection')
                 {
                     // Remove the viewmodel from the collection in the parent
                     delete parent[fieldName][viewModel.Uid];
-
-                    // If the collection is empty, then delete it entirely 
-                    if ($.isEmptyObject(parent[fieldName]))
-                    {
-                        delete parent[fieldName];
-                    }
                 }
                 else
                 {
@@ -361,8 +355,8 @@ function (ko, _, $, Guid)
         // Create the view model and add standard fields
         var viewModelProto = new Application.ViewModel();
         var componentCopy = $.extend(true, {}, component);
-		componentCopy.ViewModel.prototype = viewModelProto;
-		var viewModel = new componentCopy.ViewModel();
+        componentCopy.ViewModel.prototype = viewModelProto;
+        var viewModel = new componentCopy.ViewModel();
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
@@ -380,7 +374,7 @@ function (ko, _, $, Guid)
         {
             // Add component property to parent 
             parent[fieldName] = ko.observable(viewModel);
-            
+
             // Listen for removal events
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
@@ -389,17 +383,11 @@ function (ko, _, $, Guid)
         }
         else
         {
-            // Add component collection property to parent if it isnt present
-            if (!(fieldName in parent))
-            {
-                parent[fieldName] = {};
-            }
-
             // Add the component to the collection property
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
-            
+
             // Listen for removal events
-            domObserver.observe(componentRoot.parent().get(0), { childList: true });            
+            domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
             componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
@@ -416,6 +404,14 @@ function (ko, _, $, Guid)
 
         // Type any child components
         TypeComponents(componentRoot);
+
+        // Get any child collection components and add fields for them so that collection-wide event handlers can be attached 
+        var childCollections = componentRoot.find('[data-component-type="collection"]');
+        _(childCollections).each(function (collection)
+        {
+            var collectionName = $(collection).data('name');
+            viewModel[collectionName] = {};
+        });
 
         return viewModel;
     }
@@ -472,6 +468,6 @@ function (ko, _, $, Guid)
             }
         }
     };
-    
+
     return Application;
 });
