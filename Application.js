@@ -193,7 +193,23 @@ function (ko, _, $, Guid)
             this.Remove = _.bind(function () { this.View().remove(); }, this);
             this.Removed = new Application.Event(); // Removed event
             this.ChildRemoved = new Application.Event(); // Child removed event
+
+            this.Events() = _.bind(function ()
+            {
+                return _.chain(this)
+                        .filter(function (prop)
+                        {
+                            return prop instanceof Application.Event;
+                        })
+                        .map(function (prop, name)
+                        {
+                            return { Name: name, Event: prop };
+                        })
+                        .value();
+            }, this);
         }
+
+        
     }
 
     // Application events
@@ -386,7 +402,7 @@ function (ko, _, $, Guid)
             // Add the component to the collection property
             parent[fieldName][viewModel.Uid] = ko.observable(viewModel);
 
-            for(var prop in parent[fieldName])
+            for (var prop in parent[fieldName])
             {
                 if (parent[fieldName][prop] instanceof Application.Event)
                 {
@@ -429,7 +445,7 @@ function (ko, _, $, Guid)
 
             var collectionComponentInstance = new componentCopy.ViewModel();
 
-            for(var prop in collectionComponentInstance)
+            for (var prop in collectionComponentInstance)
             {
                 if (collectionComponentInstance[prop] instanceof Application.Event)
                 {
@@ -490,6 +506,9 @@ function (ko, _, $, Guid)
                 _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
 
                 viewModel.Loaded.Trigger();
+
+                if (viewModel.Parent().Active())
+                    viewModel.Activated.Trigger();
             }
         }
     };
