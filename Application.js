@@ -227,6 +227,76 @@ function (ko, _, $, Guid)
                         })
                         .value();
             }, this);
+        },
+
+        ViewModelCollection: function ()
+        {
+            this.prototype = [];
+
+            this.Activate = _.bind(function ()
+            {
+                _(this).each(function (vm)
+                {
+                    vm.Activate.apply(vm, arguments);
+                });
+            }, this);
+            this.Activated = new Application.Event();
+
+            this.Finish = _.bind(function ()
+            {
+                _(this).each(function (vm)
+                {
+                    vm.Finish.apply(vm, arguments);
+                });
+            }, this);
+
+            this.push = _.bind(function ()
+            {
+                _(arguments).each(function (arg)
+                {
+                    if (arg instanceof Application.ViewModel)
+                    {
+                        var events = arg.Events();
+
+                        _(events).each(function (ev)
+                        {
+                            if (!(ev.Name in this))
+                            {
+                                this[ev.Name] = new Application.RoutedEvent();
+                            }
+
+                            this[ev.Name].AddRoute(ev.Event);
+
+                        }, this);
+                    }
+                }, this);
+
+                Array.prototype.push.apply(this, arguments);
+            }, this);
+
+            this.remove = _.bind(function ()
+            {
+                _(arguments).each(function (arg)
+                {
+                    if (arg instanceof Application.ViewModel)
+                    {
+                        if (this.indexOf(arg) != -1)
+                        {
+                            this.slice(this.indexOf(arg), 1);
+
+                            var events = arg.Events();
+
+                            _(events).each(function (ev)
+                            {
+                                if (ev.Name in this)
+                                {
+                                    this[ev.Name].RemoveRoute(ev.Event);
+                                }
+                            }, this);
+                        }
+                    }
+                }, this);
+            }, this);
         }
     }
 
