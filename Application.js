@@ -151,7 +151,7 @@ function (ko, _, $, Guid)
             this.RemoveRoute = _.bind(function (ev)
             {
                 ev.Off(this.TriggerRoute);
-            });
+            }, this);
         },
 
         // Viewmodel prototype parent
