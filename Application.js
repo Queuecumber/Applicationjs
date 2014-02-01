@@ -308,6 +308,11 @@ function (ko, _, $, Guid)
                     }
                 }, this);
             }, this);
+
+            this.find = _.bind(function (uid)
+            {
+                return _(this).findWhere({ Uid: uid });
+            }, this);
         }
     }
 
@@ -508,7 +513,7 @@ function (ko, _, $, Guid)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
+            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '.find("' + viewModel.Uid + '").Visible, with: $parent.' + fieldName + '.find("' + viewModel.Uid + '")');
         }
 
         componentRoot.attr('id', viewModel.Uid);
