@@ -134,10 +134,8 @@ function (ko, _, $, Guid)
             }, this);
         },
 
-        RoutedEvent: function (id)
+        RoutedEvent: function ()
         {
-            this.prototype = new Event(id);
-
             this.TriggerRoute = _.bind(function ()
             {
                 this.Trigger.apply(this, arguments);
@@ -214,7 +212,7 @@ function (ko, _, $, Guid)
             this.Removed = new Application.Event(); // Removed event
             this.ChildRemoved = new Application.Event(); // Child removed event
 
-            this.Events() = _.bind(function ()
+            this.Events = _.bind(function ()
             {
                 return _.chain(this)
                         .filter(function (prop)
@@ -231,12 +229,19 @@ function (ko, _, $, Guid)
 
         ViewModelCollection: function (collectionType)
         {
-            this.prototype = [];
-
             var collectionPrototype = new collectionType();
-            collectionPrototype.Events = Application.ViewModel.prototype.Events;
 
-            var events = collectionPrototype.Events();
+            var events = _.chain(collectionPrototype)
+                        .filter(function (prop)
+                        {
+                            return prop instanceof Application.Event;
+                        })
+                        .map(function (prop, name)
+                        {
+                            return { Name: name, Event: prop };
+                        })
+                        .value();
+
             _(events).each(function (ev)
             {
                 this[ev.Name] = new RoutedEvent();
@@ -269,13 +274,10 @@ function (ko, _, $, Guid)
 
                         _(events).each(function (ev)
                         {
-                            if (!(ev.Name in this))
+                            if (ev.Name in this)
                             {
-                                this[ev.Name] = new Application.RoutedEvent();
+                                this[ev.Name].AddRoute(ev.Event);
                             }
-
-                            this[ev.Name].AddRoute(ev.Event);
-
                         }, this);
                     }
                 }, this);
@@ -308,6 +310,9 @@ function (ko, _, $, Guid)
             }, this);
         }
     }
+
+    Application.RoutedEvent.prototype = new Application.Event();
+    Application.ViewModelCollection.prototype = [];
 
     // Application events
     Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
@@ -523,10 +528,12 @@ function (ko, _, $, Guid)
         _(childCollections).each(function (collection)
         {
             var collectionName = $(collection).data('name');
+
+            var componentName = $(collection).data('component');
             var collectionType = _(this.Components()).findWhere({ Name: componentName }).ViewModel;
 
             viewModel[collectionName] = new Application.ViewModelCollection(collectionType);
-        });
+        }, this);
 
         return viewModel;
     }
