@@ -215,13 +215,17 @@ function (ko, _, $, Guid)
             this.Events = _.bind(function ()
             {
                 return _.chain(this)
-                        .filter(function (prop)
+                        .map(function (prop, key)
                         {
-                            return prop instanceof Application.Event;
+                            return { Name: key, Property: prop };
                         })
-                        .map(function (prop, name)
+                        .filter(function (desc)
                         {
-                            return { Name: name, Event: prop };
+                            return desc.Property instanceof Application.Event;
+                        })
+                        .map(function (desc)
+                        {
+                            return { Name: desc.name, Event: desc.Property };
                         })
                         .value();
             }, this);
