@@ -115,14 +115,7 @@ function (ko, _, $, Guid)
         Event: function (id)
         {
             // Generate a unique id if one was not provided
-            if (id)
-            {
-                this.Id = id;
-            }
-            else
-            {
-                this.Id = Guid.NewGuid();
-            }
+            this.Id = Guid.NewGuid();
 
             // Attaches an event handler
             this.On = _.bind(function ()
@@ -149,10 +142,12 @@ function (ko, _, $, Guid)
 
         RoutedEvent: function ()
         {
+            var event = new Application.Event();
+
             this.TriggerRoute = _.bind(function ()
             {
                 var argsWithoutEvent = $.makeArray(arguments).slice(1);
-                this.Trigger.apply(this, argsWithoutEvent);
+                event.Trigger.apply(this, argsWithoutEvent);
             }, this);
 
             this.AddRoute = _.bind(function (ev)
@@ -164,6 +159,9 @@ function (ko, _, $, Guid)
             {
                 ev.Off(this.TriggerRoute);
             }, this);
+
+            this.On = event.On;
+            this.Off = event.Off;
         },
 
         // Viewmodel prototype parent
@@ -276,6 +274,7 @@ function (ko, _, $, Guid)
                     vm().Activate.apply(vm, args);
                 });
             }, this);
+            this.Activated = new Application.RoutedEvent();
 
             this.Finish = _.bind(function ()
             {
@@ -286,6 +285,7 @@ function (ko, _, $, Guid)
                     vm().Finish.apply(vm, args);
                 });
             }, this);
+            this.Finished = new Application.RoutedEvent();
 
             this.Add = _.bind(function (vm)
             {
@@ -297,15 +297,28 @@ function (ko, _, $, Guid)
                     }
                 }, this);
 
+                this.Loaded.AddRoute(vm.Loaded);
+                this.Activated.AddRoute(vm.Activated);
+                this.Finished.AddRoute(vm.Finished);
+                this.Removed.AddRoute(vm.Removed);
+                this.ChildRemoved.AddRoute(vm.ChildRemoved);
+
                 this[vm.Uid] = ko.observable(vm);
 
             }, this);
+            this.Loaded = new Application.RoutedEvent();
 
             this.Remove = _.bind(function (vm)
             {
                 if (vm.Uid in this)
                 {
                     delete this[vm.Uid];
+
+                    this.Loaded.RemoveRoute(vm.Loaded);
+                    this.Activated.RemoveRoute(vm.Activated);
+                    this.Finished.RemoveRoute(vm.Finished);
+                    this.Removed.RemoveRoute(vm.Removed);
+                    this.ChildRemoved.RemoveRoute(vm.ChildRemoved);
 
                     _(vm.Events()).each(function (ev)
                     {
@@ -316,10 +329,10 @@ function (ko, _, $, Guid)
                     }, this);
                 }
             }, this);
+            this.Removed = new Application.RoutedEvent();
+            this.ChildRemoved = new Application.RoutedEvent();
         }
     }
-
-    Application.RoutedEvent.prototype = new Application.Event();
 
     // Application events
     Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
