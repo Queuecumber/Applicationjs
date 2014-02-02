@@ -30,17 +30,29 @@ function (ko, _, $, Guid)
 
         Children: function ()
         {
-            return _.chain(this)
-                    .filter(ko.isObservable)
-                    .filter(function (obs)
-                    {
-                        return obs() instanceof Application.ViewModel;
-                    })
-                    .map(function (vm)
-                    {
-                        return vm();
-                    })
-                    .value();
+            var children = _.chain(this)
+                            .filter(ko.isObservable)
+                            .filter(function (obs)
+                            {
+                                return obs() instanceof Application.ViewModel;
+                            })
+                            .map(function (vm)
+                            {
+                                return vm();
+                            })
+                            .value();
+
+            var collectionChildren = _.chain(this)
+                                      .filter(function (prop) { return prop instanceof Application.ViewModelCollection; })
+                                      .map(function (vmc) { return vmc.ViewModels(); })
+                                      .flatten()
+                                      .map(function (vm)
+                                      {
+                                          return vm();
+                                      })
+                                      .value();
+
+            return children.concat(collectionChildren);
         },
 
         // Composes the page and applies data bindings
