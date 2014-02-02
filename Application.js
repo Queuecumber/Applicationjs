@@ -138,7 +138,8 @@ function (ko, _, $, Guid)
         {
             this.TriggerRoute = _.bind(function ()
             {
-                this.Trigger.apply(this, arguments);
+                var argsWithoutEvent = $.makeArray(arguments).slice(1);
+                this.Trigger.apply(this, argsWithoutEvent);
             }, this);
 
             this.AddRoute = _.bind(function (ev)
@@ -212,7 +213,7 @@ function (ko, _, $, Guid)
             this.Removed = new Application.Event(); // Removed event
             this.ChildRemoved = new Application.Event(); // Child removed event
 
-            this.Events = _.bind(function ()
+            this.Events = function ()
             {
                 return _.chain(this)
                         .map(function (prop, key)
@@ -225,10 +226,10 @@ function (ko, _, $, Guid)
                         })
                         .map(function (desc)
                         {
-                            return { Name: desc.name, Event: desc.Property };
+                            return { Name: desc.Name, Event: desc.Property };
                         })
                         .value();
-            }, this);
+            };
         },
 
         ViewModelCollection: function (collectionType)
@@ -242,17 +243,17 @@ function (ko, _, $, Guid)
                         })
                         .filter(function (prop)
                         {
-                            return prop instanceof Application.Event;
+                            return prop.Property instanceof Application.Event;
                         })
-                        .map(function (prop, name)
+                        .map(function (prop)
                         {
-                            return { Name: name, Event: prop };
+                            return { Name: prop.Name, Event: prop.Property };
                         })
                         .value();
 
             _(events).each(function (ev)
             {
-                this[ev.Name] = new RoutedEvent();
+                this[ev.Name] = new Application.RoutedEvent();
             }, this);
 
             this.ViewModels = function ()
@@ -275,7 +276,6 @@ function (ko, _, $, Guid)
                     vm().Activate.apply(vm, args);
                 });
             }, this);
-            this.Activated = new Application.Event();
 
             this.Finish = _.bind(function ()
             {
@@ -537,7 +537,13 @@ function (ko, _, $, Guid)
             var collectionName = $(collection).data('name');
 
             var componentName = $(collection).data('component');
-            var collectionType = _(this.Components()).findWhere({ Name: componentName }).ViewModel;
+            var component = _(this.Components()).findWhere({ Name: componentName });
+
+            var viewModelProto = new Application.ViewModel();
+            var componentCopy = $.extend(true, {}, component);
+            componentCopy.ViewModel.prototype = viewModelProto;
+
+            var collectionType = componentCopy.ViewModel;
 
             viewModel[collectionName] = new Application.ViewModelCollection(collectionType);
         }, this);
