@@ -28,7 +28,20 @@ function (ko, _, $, Guid)
 
         Visible: ko.observable(true),
 
-        Children: ko.observableArray(),
+        Children: function ()
+        {
+            return _.chain(this)
+                    .filter(ko.isObservable)
+                    .filter(function (obs)
+                    {
+                        return obs() instanceof Application.ViewModel;
+                    })
+                    .map(function (vm)
+                    {
+                        return vm();
+                    })
+                    .value();
+        },
 
         // Composes the page and applies data bindings
         Compose: function (components)
@@ -161,8 +174,8 @@ function (ko, _, $, Guid)
 
             // Parent, children, and find child function
             this.Parent = ko.observable({});
-            this.Children = ko.observableArray([]);
-            this.Find = _.bind(Application.Find, this);
+            this.Children = Application.Children;
+            this.Find = Application.Find;
 
             // Loaded event, fired after the components view is added and its viewmodel is set up
             this.Loaded = new Application.Event();
@@ -236,20 +249,7 @@ function (ko, _, $, Guid)
         {
             var collectionPrototype = new collectionType();
 
-            var events = _.chain(collectionPrototype)
-                        .map(function (prop, key)
-                        {
-                            return { Name: key, Property: prop };
-                        })
-                        .filter(function (prop)
-                        {
-                            return prop.Property instanceof Application.Event;
-                        })
-                        .map(function (prop)
-                        {
-                            return { Name: prop.Name, Event: prop.Property };
-                        })
-                        .value();
+            var events = collectionPrototype.Events();
 
             _(events).each(function (ev)
             {
@@ -451,13 +451,6 @@ function (ko, _, $, Guid)
                     delete parent[fieldName];
                 }
 
-                // Remove the component from the parents Child list
-                var childIndex = parent.Children.indexOf(viewModel);
-                if (childIndex > -1)
-                {
-                    parent.Children.splice(childIndex, 1);
-                }
-
                 // Trigger removal events
                 viewModel.Removed.Trigger();
                 parent.ChildRemoved.Trigger(viewModel);
@@ -492,7 +485,6 @@ function (ko, _, $, Guid)
         }
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
-        parent.Children.push(viewModel);
         viewModel.Parent(parent);
 
         if (type != 'collection')
