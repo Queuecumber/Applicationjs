@@ -30,6 +30,7 @@ function (ko, _, $, Guid)
 
         Children: function ()
         {
+            // Grab direct children
             var children = _.chain(this)
                             .filter(ko.isObservable)
                             .filter(function (obs)
@@ -42,6 +43,7 @@ function (ko, _, $, Guid)
                             })
                             .value();
 
+            // Grab children in collections
             var collectionChildren = _.chain(this)
                                       .filter(function (prop) { return prop instanceof Application.ViewModelCollection; })
                                       .map(function (vmc) { return vmc.ViewModels(); })
@@ -52,6 +54,7 @@ function (ko, _, $, Guid)
                                       })
                                       .value();
 
+            // Merge the two lists
             return children.concat(collectionChildren);
         },
 
@@ -154,24 +157,29 @@ function (ko, _, $, Guid)
 
         RoutedEvent: function ()
         {
+            // Track the routed signal using a private event that can only be triggered internally 
             var event = new Application.Event();
 
-            this.TriggerRoute = _.bind(function ()
+            // Triggers the routed events
+            var triggerRoute = _.bind(function ()
             {
                 var argsWithoutEvent = $.makeArray(arguments).slice(1);
                 event.Trigger.apply(this, argsWithoutEvent);
             }, this);
 
+            // Adds an event whose signal will be routed 
             this.AddRoute = _.bind(function (ev)
             {
-                ev.On(this.TriggerRoute);
+                ev.On(triggerRoute);
             }, this);
 
+            // Removes an event from routing
             this.RemoveRoute = _.bind(function (ev)
             {
-                ev.Off(this.TriggerRoute);
+                ev.Off(triggerRoute);
             }, this);
 
+            // Allow turning on and off subscriptions to the routed signals
             this.On = event.On;
             this.Off = event.Off;
         },
@@ -236,6 +244,7 @@ function (ko, _, $, Guid)
             this.Removed = new Application.Event(); // Removed event
             this.ChildRemoved = new Application.Event(); // Child removed event
 
+            // Gets any events attached to the viewmodel
             this.Events = function ()
             {
                 return _.chain(this)
@@ -255,17 +264,20 @@ function (ko, _, $, Guid)
             };
         },
 
+        // Manages a collection of viewmodels
         ViewModelCollection: function (collectionType)
         {
+            // Get a prototype of the components this collection will manage
             var collectionPrototype = new collectionType();
 
+            // Create routed events for any of the user defined events so that handlers can be attached collection-wide
             var events = collectionPrototype.Events();
-
             _(events).each(function (ev)
             {
                 this[ev.Name] = new Application.RoutedEvent();
             }, this);
 
+            // Gets the viewmodels in the collection
             this.ViewModels = function ()
             {
                 return _.chain(this)
@@ -277,6 +289,7 @@ function (ko, _, $, Guid)
                 .value();
             };
 
+            // Activate all viewmodels in the collection
             this.Activate = _.bind(function ()
             {
                 var args = arguments;
@@ -288,6 +301,7 @@ function (ko, _, $, Guid)
             }, this);
             this.Activated = new Application.RoutedEvent();
 
+            // Finish all viewmodels in the collection
             this.Finish = _.bind(function ()
             {
                 var args = arguments;
@@ -298,9 +312,11 @@ function (ko, _, $, Guid)
                 });
             }, this);
             this.Finished = new Application.RoutedEvent();
-
+            
+            // Add a viewmodel to the collection
             this.Add = _.bind(function (vm)
             {
+                // Route user events
                 _(vm.Events()).each(function (ev)
                 {
                     if (ev.Name in this)
@@ -309,29 +325,36 @@ function (ko, _, $, Guid)
                     }
                 }, this);
 
+                // Route standard events
                 this.Loaded.AddRoute(vm.Loaded);
                 this.Activated.AddRoute(vm.Activated);
                 this.Finished.AddRoute(vm.Finished);
                 this.Removed.AddRoute(vm.Removed);
                 this.ChildRemoved.AddRoute(vm.ChildRemoved);
 
+                // Add to the collection
                 this[vm.Uid] = ko.observable(vm);
 
             }, this);
             this.Loaded = new Application.RoutedEvent();
 
+            // Remove a viewmodel from the collection
             this.Remove = _.bind(function (vm)
             {
+                // Make sure the component is in the collection
                 if (vm.Uid in this)
                 {
+                    // Remove the component
                     delete this[vm.Uid];
 
+                    // Remove routing for standard event handlers
                     this.Loaded.RemoveRoute(vm.Loaded);
                     this.Activated.RemoveRoute(vm.Activated);
                     this.Finished.RemoveRoute(vm.Finished);
                     this.Removed.RemoveRoute(vm.Removed);
                     this.ChildRemoved.RemoveRoute(vm.ChildRemoved);
 
+                    // Remove routing for user events
                     _(vm.Events()).each(function (ev)
                     {
                         if (ev.Name in this)
@@ -551,17 +574,20 @@ function (ko, _, $, Guid)
         var childCollections = componentRoot.find('[data-component-type="collection"]');
         _(childCollections).each(function (collection)
         {
+            // Get the name of the collection
             var collectionName = $(collection).data('name');
 
+            // Get the component that will be kept in the collection
             var componentName = $(collection).data('component');
             var component = _(this.Components()).findWhere({ Name: componentName });
 
+            // Create the prototype for the viewmodel
             var viewModelProto = new Application.ViewModel();
             var componentCopy = $.extend(true, {}, component);
             componentCopy.ViewModel.prototype = viewModelProto;
 
+            // Create the collection
             var collectionType = componentCopy.ViewModel;
-
             viewModel[collectionName] = new Application.ViewModelCollection(collectionType);
         }, this);
 
