@@ -236,6 +236,10 @@ function (ko, _, $, Guid)
             var collectionPrototype = new collectionType();
 
             var events = _.chain(collectionPrototype)
+                        .map(function (prop, key)
+                        {
+                            return { Name: key, Property: prop };
+                        })
                         .filter(function (prop)
                         {
                             return prop instanceof Application.Event;
@@ -251,77 +255,71 @@ function (ko, _, $, Guid)
                 this[ev.Name] = new RoutedEvent();
             }, this);
 
+            this.ViewModels = function ()
+            {
+                return _.chain(this)
+                .filter(ko.isObservable)
+                .filter(function (prop)
+                {
+                    return prop() instanceof Application.ViewModel;
+                })
+                .value();
+            };
+
             this.Activate = _.bind(function ()
             {
-                _(this).each(function (vm)
+                var args = arguments;
+
+                _(this.ViewModels()).each(function (vm)
                 {
-                    vm.Activate.apply(vm, arguments);
+                    vm().Activate.apply(vm, args);
                 });
             }, this);
             this.Activated = new Application.Event();
 
             this.Finish = _.bind(function ()
             {
-                _(this).each(function (vm)
+                var args = arguments;
+
+                _(this.ViewModels()).each(function (vm)
                 {
-                    vm.Finish.apply(vm, arguments);
+                    vm().Finish.apply(vm, args);
                 });
             }, this);
 
-            this.push = _.bind(function ()
+            this.Add = _.bind(function (vm)
             {
-                _(arguments).each(function (arg)
+                _(vm.Events()).each(function (ev)
                 {
-                    if (arg instanceof Application.ViewModel)
+                    if (ev.Name in this)
                     {
-                        var events = arg.Events();
-
-                        _(events).each(function (ev)
-                        {
-                            if (ev.Name in this)
-                            {
-                                this[ev.Name].AddRoute(ev.Event);
-                            }
-                        }, this);
+                        this[ev.Name].AddRoute(ev.Event);
                     }
                 }, this);
 
-                Array.prototype.push.apply(this, arguments);
+                this[vm.Uid] = ko.observable(vm);
+
             }, this);
 
-            this.remove = _.bind(function ()
+            this.Remove = _.bind(function (vm)
             {
-                _(arguments).each(function (arg)
+                if (vm.Uid in this)
                 {
-                    if (arg instanceof Application.ViewModel)
+                    delete this[vm.Uid];
+
+                    _(vm.Events()).each(function (ev)
                     {
-                        if (this.indexOf(arg) != -1)
+                        if (ev.Name in this)
                         {
-                            this.slice(this.indexOf(arg), 1);
-
-                            var events = arg.Events();
-
-                            _(events).each(function (ev)
-                            {
-                                if (ev.Name in this)
-                                {
-                                    this[ev.Name].RemoveRoute(ev.Event);
-                                }
-                            }, this);
+                            this[ev.Name].RemoveRoute(ev.Event);
                         }
-                    }
-                }, this);
-            }, this);
-
-            this.find = _.bind(function (uid)
-            {
-                return _(this).findWhere({ Uid: uid });
+                    }, this);
+                }
             }, this);
         }
     }
 
     Application.RoutedEvent.prototype = new Application.Event();
-    Application.ViewModelCollection.prototype = [];
 
     // Application events
     Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
@@ -445,7 +443,7 @@ function (ko, _, $, Guid)
                 if ($(node).data('componentType') == 'collection')
                 {
                     // Remove the viewmodel from the collection in the parent
-                    parent[fieldName].remove(viewModel);
+                    parent[fieldName].Remove(viewModel);
                 }
                 else
                 {
@@ -511,13 +509,13 @@ function (ko, _, $, Guid)
         else
         {
             // Add the component to the collection property
-            parent[fieldName].push(viewModel);
+            parent[fieldName].Add(viewModel);
 
             // Listen for removal events
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '.find("' + viewModel.Uid + '").Visible, with: $parent.' + fieldName + '.find("' + viewModel.Uid + '")');
+            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
         }
 
         componentRoot.attr('id', viewModel.Uid);
