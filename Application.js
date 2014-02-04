@@ -302,7 +302,7 @@ function (ko, _, $, Guid)
 
                 _(this.ViewModels()).each(function (vm)
                 {
-                    vm().Activate.apply(vm, args);
+                    vm().Activate.apply(vm(), args);
                 });
             }, this);
             this.Activated = new Application.RoutedEvent();
@@ -314,7 +314,7 @@ function (ko, _, $, Guid)
 
                 _(this.ViewModels()).each(function (vm)
                 {
-                    vm().Finish.apply(vm, args);
+                    vm().Finish.apply(vm(), args);
                 });
             }, this);
             this.Finished = new Application.RoutedEvent();
