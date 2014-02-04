@@ -203,7 +203,7 @@ function (ko, _, $, Guid)
             this.Active = function () { return isActive; } // Tracks if the component is active
 
             // Activates the component, any number of arguments can be passed to the activation handlers			
-            this.Activate = _.bind(function ()
+            this.Activate = function ()
             {
                 this.Visible(true);
                 isActive = true;
@@ -221,11 +221,11 @@ function (ko, _, $, Guid)
                 {
                     this.Activated.Trigger.apply(this.Activated, arguments);
                 }
-            }, this);
+            };
             this.Activated = new Application.Event(); // Activated event
 
             // Finishes the component, any number of arguments can be passed to the finish handlers
-            this.Finish = _.bind(function ()
+            this.Finish = function ()
             {
                 this.Visible(false);
                 isActive = false;
@@ -236,7 +236,7 @@ function (ko, _, $, Guid)
         			if(vm.Active())
             			vm.Finish();
             	});
-            }, this);
+            };
             this.Finished = new Application.Event(); // Finish event
 
             // Unique identifier
