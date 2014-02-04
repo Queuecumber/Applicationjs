@@ -230,6 +230,12 @@ function (ko, _, $, Guid)
                 this.Visible(false);
                 isActive = false;
                 this.Finished.Trigger.apply(this.Finished, arguments);
+
+            	_(this.Children()).each(function (vm)
+            	{
+        			if(vm.Active())
+            			vm.Finish();
+            	});
             }, this);
             this.Finished = new Application.Event(); // Finish event
 
