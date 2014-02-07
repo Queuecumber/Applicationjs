@@ -250,23 +250,50 @@ function (ko, _, $, Guid)
             this.Removed = new Application.Event(); // Removed event
             this.ChildRemoved = new Application.Event(); // Child removed event
 
-            // Gets any events attached to the viewmodel
-            this.Events = function ()
+            function filterProperties(filterFunction)
             {
                 return _.chain(this)
                         .map(function (prop, key)
                         {
                             return { Name: key, Property: prop };
                         })
-                        .filter(function (desc)
+                        .filter(filterFunction)
+                        .value();
+            }
+
+            // Gets any events attached to the viewmodel
+            this.Events = function ()
+            {
+                return filterProperties.apply(this, [function (desc)
                         {
                             return desc.Property instanceof Application.Event;
-                        })
-                        .map(function (desc)
+                        }]);
+            };
+
+            // Get functions of the viewmodel
+            this.Functions = function ()
+            {
+                return filterProperties.apply(this, [function (desc)
                         {
-                            return { Name: desc.Name, Event: desc.Property };
-                        })
-                        .value();
+                            return typeof(desc.Property) == 'function' && !ko.isObservable(desc.Property);
+                        }]);
+            };
+
+            this.Observables = function ()
+            {
+                return filterProperties.apply(this, [function (desc)
+                {
+                    return ko.isObservable(desc.Property);
+                }]);
+            };
+
+            // Get non-function, non-event proprties of the viewmodel
+            this.Properties = function ()
+            {
+                return filterProperties.apply(this, [function (desc)
+                {
+                    return typeof(desc.Property) != 'function' && !(desc.Property instanceof Application.Event);
+                }]);
             };
         },
 
@@ -283,16 +310,105 @@ function (ko, _, $, Guid)
                 this[ev.Name] = new Application.RoutedEvent();
             }, this);
 
+            // Create functions that can be called collection wide
+            var functions = collectionPrototype.Functions();
+            _(functions).each(function (f)
+            {
+                this[f.Name] = function ()
+                {
+                    var args = _.toArray(arguments);
+                    var returns = [];
+                    _(this.ViewModels()).each(function (vm)
+                    {
+                        var ret = vm()[f.Name].apply(vm(), args);
+                        returns.push(ret);
+                    });
+
+                    return returns;
+                };
+            }, this);
+
+            // Create observables that can be get/set collection wide
+            var observables = collectionPrototype.Observables();
+            _(observables).each(function (o)
+            {
+                this[o.Name] = function (val)
+                {
+                    if(val)
+                    {
+                        _(this.ViewModels()).each(function (vm)
+                        {
+                            vm()[o.Name](val);
+                        });
+                    }
+                    else
+                    {
+                        var vals = [];
+                        _(this.ViewModels()).each(function (vm)
+                        {
+                            vals.push(vm()[o.Name]());
+                        });
+
+                        return vals;
+                    }
+                };
+            }, this);
+
+            // Create properties that can be get/set collection wide
+            var properties = collectionPrototype.Properties();
+            var addedProperties = [];
+            _(properties).each(function (p)
+            {
+                var vmc = this;
+
+                Object.defineProperty(this, p.Name, {
+                    enumerable: true,
+                    get: function ()
+                    {
+                        var vals = [];
+                        _(vmc.ViewModels()).each(function (vm)
+                        {
+                            vals.push(vm()[p.Name]);
+                        });
+
+                        return vals;
+                    },
+
+                    set: function (val)
+                    {
+                        _(vmc.ViewModels()).each(function (vm)
+                        {
+                            vm()[p.Name] = val;
+                        });
+                    }
+                });
+
+                addedProperties.push(p.Name);
+
+            }, this);
+
             // Gets the viewmodels in the collection
             this.ViewModels = function ()
             {
-                return _.chain(this)
-                .filter(ko.isObservable)
-                .filter(function (prop)
+                // Remove properties added as children to avoid infinite recursion
+                var safeProperties = [];
+                for(var key in this)
                 {
-                    return prop() instanceof Application.ViewModel;
-                })
-                .value();
+                    if(addedProperties.indexOf(key) == -1)   
+                        safeProperties.push(key);
+                }
+
+                return _.chain(safeProperties)
+                        .map(function (name)
+                        {
+                            return this[name];
+                        }, this)
+                        .filter(ko.isObservable)
+                        .filter(function (prop)
+                        {
+                            return prop() instanceof Application.ViewModel;
+                        })
+                        .value();
             };
 
             // Activate all viewmodels in the collection
@@ -327,7 +443,7 @@ function (ko, _, $, Guid)
                 {
                     if (ev.Name in this)
                     {
-                        this[ev.Name].AddRoute(ev.Event);
+                        this[ev.Name].AddRoute(ev.Property);
                     }
                 }, this);
 
@@ -365,7 +481,7 @@ function (ko, _, $, Guid)
                     {
                         if (ev.Name in this)
                         {
-                            this[ev.Name].RemoveRoute(ev.Event);
+                            this[ev.Name].RemoveRoute(ev.Property);
                         }
                     }, this);
                 }
