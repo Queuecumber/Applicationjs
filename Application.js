@@ -63,23 +63,32 @@ function (ko, _, $, Guid)
         {
             $('body').attr('data-bind', 'visible: Visible');
 
+            if(!components)
+            {
+                $.ajaxSetup({ async: false });
+                $.getJSON('Components.json', function (c) { components = c; });
+                $.ajaxSetup({ async: true });
+            }
+
             this.Components(components);
-            LoadComponents();
+            LoadComponents(_.bind(function()
+            {
+                // Apply initial component types
+                TypeComponents($('body'));
 
-            // Apply initial component types
-            TypeComponents($('body'));
+                var topLevelComponents = $('[data-component]').toArray();
+                var expandedModels = ExpandComponents(topLevelComponents);
 
-            var topLevelComponents = $('[data-component]').toArray();
-            var expandedModels = ExpandComponents(topLevelComponents);
+                // trigger loaded event from bottom up
+                expandedModels.reverse();
+                _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
 
-            // trigger loaded event from bottom up
-            expandedModels.reverse();
-            _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
+                // Apply databindings
+                ko.applyBindings(this);
 
-            // Finally trigger that the application as a whole is loaded
-            this.Loaded.Trigger();
-
-            ko.applyBindings(this);
+                // Finally trigger that the application as a whole is loaded
+                this.Loaded.Trigger();
+            }, this));
         },
 
         // Find an component by id using a depth first search (recursive)
@@ -510,10 +519,12 @@ function (ko, _, $, Guid)
     }
 
     // Loads view templates and styles for each component
-    function _LoadComponents()
+    function _LoadComponents(callback)
     {
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
+
+        var viewmodelPaths = [];
 
         // Preload styles and templates for each component
         _(this.Components()).each(function (comp)
@@ -530,10 +541,23 @@ function (ko, _, $, Guid)
             {
                 comp.Template = viewData;
             });
+
+            viewmodelPaths.push(comp.ViewModel);
         });
 
         // Put JQuery back into asynchronous mode for future ajax requests
         $.ajaxSetup({ async: true });
+
+        // Load viewmodels
+        require(viewmodelPaths, _.bind(function ()
+        {
+            for(var i = 0; i < arguments.length; i++)
+            {
+                this.Components()[i].ViewModel = arguments[i];
+            }
+
+            callback();
+        }, this));
     }
     var LoadComponents = _.bind(_LoadComponents, Application);
 
