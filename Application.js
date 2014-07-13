@@ -553,9 +553,9 @@ function (ko, _, $, Guid)
         // Put JQuery back into asynchronous mode for future ajax requests
         $.ajaxSetup({ async: true });
 
-        if(viewModelPaths.length > 0)
+        if(viewmodelPaths.length > 0)
         {
-            // Load viewmodels if necessary 
+            // Dynamically load missing viewmodels
             require(viewmodelPaths, _.bind(function ()
             {
                 for(var i = 0; i < arguments.length; i++)
@@ -565,6 +565,10 @@ function (ko, _, $, Guid)
 
                 callback();
             }, this));
+        }
+        else
+        {
+            callback();
         }
     }
     var LoadComponents = _.bind(_LoadComponents, Application);
