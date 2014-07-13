@@ -525,9 +525,10 @@ function (ko, _, $, Guid)
         $.ajaxSetup({ async: false });
 
         var viewmodelPaths = [];
+        var viewmodelIdx = [];
 
         // Preload styles and templates for each component
-        _(this.Components()).each(function (comp)
+        _(this.Components()).each(function (comp, i)
         {
             // Append the style node to the pages head
             if ('Style' in comp)
@@ -542,22 +543,29 @@ function (ko, _, $, Guid)
                 comp.Template = viewData;
             });
 
-            viewmodelPaths.push(comp.ViewModel);
+            if(typeof comp.ViewModel == 'string')
+            {
+                viewmodelPaths.push(comp.ViewModel);
+                viewmodelIdx.push(i);
+            }
         });
 
         // Put JQuery back into asynchronous mode for future ajax requests
         $.ajaxSetup({ async: true });
 
-        // Load viewmodels
-        require(viewmodelPaths, _.bind(function ()
+        if(viewModelPaths.length > 0)
         {
-            for(var i = 0; i < arguments.length; i++)
+            // Load viewmodels if necessary 
+            require(viewmodelPaths, _.bind(function ()
             {
-                this.Components()[i].ViewModel = arguments[i];
-            }
+                for(var i = 0; i < arguments.length; i++)
+                {
+                    this.Components()[viewmodelIdx[i]].ViewModel = arguments[i];
+                }
 
-            callback();
-        }, this));
+                callback();
+            }, this));
+        }
     }
     var LoadComponents = _.bind(_LoadComponents, Application);
 
