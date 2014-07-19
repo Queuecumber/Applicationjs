@@ -6,11 +6,50 @@
 define(['knockout', 'underscore', 'jquery', 'guid'],
 function (ko, _, $, Guid)
 {
+    // Add the guard and sentinel handlers
+    ko.bindingHandlers.guard = {
+        init: function(element, valueAccessor, allBindings, viewModel, bindingContext)
+        {
+            var redirect = ko.observable();
+            var fallback = {};
+
+            if(allBindings.has('default'))
+                fallback = allBindings.get('default');
+
+            // Trick: since we can't share a state between the init and update
+            // functions (the redirect and fallback variables are the state),
+            // keep the state local and use a ko.computed. The ko.computed
+            // function is called whenever any observable it reads is updated,
+            // regardless of whether or not it is attached to a view, allowing
+            // us to catch updates to the binding without providing an update
+            // function AND to keep our state.
+            ko.computed(function() {
+                var value = valueAccessor();
+                var valueUnwrapped = ko.unwrap(value);
+
+                if(valueUnwrapped)
+                {
+                    redirect(valueUnwrapped);
+                }
+                else
+                {
+                    redirect(fallback);
+                }
+            }, null, { disposeWhenNodeIsRemoved: element });
+
+            // Another trick: bind descendants to our observable and switch its value
+            // so that we can supply whatever we want to the child nodes
+            ko.applyBindingsToDescendants(bindingContext.createChildContext(redirect), element);
+
+            return { controlsDescendantBindings: true };
+        }
+    };
+
     // Page Composition Algorithm:
     // -----------------------------------
     // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
     // 2. Take a node off the queue, parse the nodes parameters if any
-    // 3. Add events and fields to the node and loaded component 
+    // 3. Add events and fields to the node and loaded component
     // 4. Find the components parent, use Application if none, and add variable containers for that component
     // 5. Add visibility and context databindings to the root node
     // 6. Insert the expanded template into the components root as html
@@ -157,7 +196,7 @@ function (ko, _, $, Guid)
                 return $(this).off.apply($(this), [this.Id].concat(args));
             }, this);
 
-            // Triggers the event			
+            // Triggers the event
             this.Trigger = _.bind(function ()
             {
                 return $(this).triggerHandler(this.Id, arguments);
@@ -166,7 +205,7 @@ function (ko, _, $, Guid)
 
         RoutedEvent: function ()
         {
-            // Track the routed signal using a private event that can only be triggered internally 
+            // Track the routed signal using a private event that can only be triggered internally
             var event = new Application.Event();
 
             // Triggers the routed events
@@ -176,7 +215,7 @@ function (ko, _, $, Guid)
                 event.Trigger.apply(this, argsWithoutEvent);
             }, this);
 
-            // Adds an event whose signal will be routed 
+            // Adds an event whose signal will be routed
             this.AddRoute = _.bind(function (ev)
             {
                 ev.On(triggerRoute);
@@ -211,7 +250,7 @@ function (ko, _, $, Guid)
             var isActive = false;
             this.Active = function () { return isActive; } // Tracks if the component is active
 
-            // Activates the component, any number of arguments can be passed to the activation handlers			
+            // Activates the component, any number of arguments can be passed to the activation handlers
             this.Activate = function ()
             {
                 this.Visible(true);
@@ -403,7 +442,7 @@ function (ko, _, $, Guid)
                 var safeProperties = [];
                 for(var key in this)
                 {
-                    if(addedProperties.indexOf(key) == -1)   
+                    if(addedProperties.indexOf(key) == -1)
                         safeProperties.push(key);
                 }
 
@@ -443,7 +482,7 @@ function (ko, _, $, Guid)
                 });
             }, this);
             this.Finished = new Application.RoutedEvent();
-            
+
             // Add a viewmodel to the collection
             this.Add = _.bind(function (vm)
             {
@@ -695,7 +734,7 @@ function (ko, _, $, Guid)
 
         if (type != 'collection')
         {
-            // Add component property to parent 
+            // Add component property to parent
             parent[fieldName] = ko.observable(viewModel);
 
             // Listen for removal events
@@ -728,7 +767,7 @@ function (ko, _, $, Guid)
         // Type any child components
         TypeComponents(componentRoot);
 
-        // Get any child collection components and add fields for them so that collection-wide event handlers can be attached 
+        // Get any child collection components and add fields for them so that collection-wide event handlers can be attached
         var childCollections = componentRoot.find('[data-component-type="collection"]');
         _(childCollections).each(function (collection)
         {
