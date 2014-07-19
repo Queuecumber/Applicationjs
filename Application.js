@@ -186,7 +186,7 @@ function (ko, _, $)
         },
 
         // Event prototype
-        Event: function (id)
+        Event: function ()
         {
             // Generate a unique id if one was not provided
             this.Id = Application.Guid.NewGuid();
