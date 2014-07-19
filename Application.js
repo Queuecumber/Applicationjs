@@ -45,6 +45,19 @@ function (ko, _, $)
         }
     };
 
+    var ActivationParameters = {};
+    ko.bindingHandlers.activate = {
+        update: function(element, valueAccessor, allBindings, viewModel, bindingContext)
+        {
+            var guid = $(element).prop('id');
+
+            var value = valueAccessor();
+            var activationParameter = ko.unwrap(value);
+
+            ActivationParameters[guid] = activationParameter;
+        }
+    };
+
     // Page Composition Algorithm:
     // -----------------------------------
     // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
@@ -136,8 +149,25 @@ function (ko, _, $)
                 // Apply databindings
                 ko.applyBindings(this);
 
-                // Finally trigger that the application as a whole is loaded
+                // Trigger that the application as a whole is loaded
                 this.Loaded.Trigger();
+
+                // Activate any immediate children that are set to auto-activate
+                _(this.Children()).each(function (vm)
+                {
+                    if(!vm.Active() && vm.View && vm.View().data('activate') !== undefined)
+                    {
+                        if(vm.Uid in ActivationParameters)
+                        {
+                            vm.Activate(ActivationParameters[vm.Uid]);
+                        }
+                        else
+                        {
+                            vm.Activate();
+                        }
+                    }
+                });
+
             }, this));
         },
 
@@ -280,6 +310,21 @@ function (ko, _, $)
                 {
                     this.Activated.Trigger.apply(this.Activated, arguments);
                 }
+
+                _(this.Children()).each(function (vm)
+                {
+                    if(!vm.Active() && vm.View && vm.View().data('activate') !== undefined)
+                    {
+                        if(vm.Uid in ActivationParameters)
+                        {
+                            vm.Activate(ActivationParameters[vm.Uid]);
+                        }
+                        else
+                        {
+                            vm.Activate();
+                        }
+                    }
+                });
             };
             this.Activated = new Application.Event(); // Activated event
 
@@ -752,7 +797,12 @@ function (ko, _, $)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            componentRoot.attr('data-bind', 'visible: ' + fieldName + '().Visible, with: ' + fieldName);
+            var dbString = 'visible: ' + fieldName + '().Visible, with: ' + fieldName;
+
+            if(componentRoot.attr('data-bind') !== undefined)
+                dbString += ', ' + componentRoot.attr('data-bind');
+
+            componentRoot.attr('data-bind', dbString);
         }
         else
         {
@@ -763,7 +813,12 @@ function (ko, _, $)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            componentRoot.attr('data-bind', 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]');
+            var dbString = 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]';
+
+            if(componentRoot.attr('data-bind') !== undefined)
+                dbString += ', ' + componentRoot.attr('data-bind');
+
+            componentRoot.attr('data-bind', dbString);
         }
 
         componentRoot.attr('id', viewModel.Uid);
