@@ -3,8 +3,8 @@
 // Manages switching ui components which are views and associated viewmodels
 // Views are HTML partial pages, ViewModels are the underlying databindings and behavior
 // of the View. The ViewModel should take and return data to the Model object.
-define(['knockout', 'underscore', 'jquery', 'guid'],
-function (ko, _, $, Guid)
+define(['knockout', 'underscore', 'jquery'],
+function (ko, _, $)
 {
     // Add the guard and sentinel handlers
     ko.bindingHandlers.guard = {
@@ -189,7 +189,7 @@ function (ko, _, $, Guid)
         Event: function (id)
         {
             // Generate a unique id if one was not provided
-            this.Id = Guid.NewGuid();
+            this.Id = Application.Guid.NewGuid();
 
             // Attaches an event handler
             this.On = _.bind(function ()
@@ -299,7 +299,7 @@ function (ko, _, $, Guid)
             this.Finished = new Application.Event(); // Finish event
 
             // Unique identifier
-            this.Uid = Guid.NewGuid();
+            this.Uid = Application.Guid.NewGuid();
 
             // Gets the root of the components view
             this.View = _.bind(function () { return $('#' + this.Uid); }, this);
