@@ -731,7 +731,7 @@ function (ko, _, $)
                 if ($(node).data('componentType') == 'collection')
                 {
                     // Remove the viewmodel from the collection in the parent
-                    parent[fieldName].remove(viewModel);
+                    parent[fieldName]().remove(viewModel);
                 }
                 else
                 {
@@ -794,13 +794,13 @@ function (ko, _, $)
         else
         {
             // Add the component to the collection property
-            parent[fieldName].add(viewModel);
+            parent[fieldName]().add(viewModel);
 
             // Listen for removal events
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            var dbString = 'visible: $parent.' + fieldName + '["' + viewModel.uid + '"]().visible, with: $parent.' + fieldName + '["' + viewModel.uid + '"]';
+            var dbString = 'visible: $parent.' + fieldName + '()["' + viewModel.uid + '"]().visible, with: $parent.' + fieldName + '()["' + viewModel.uid + '"]';
 
             if(componentRoot.attr('data-bind') !== undefined)
                 dbString += ', ' + componentRoot.attr('data-bind');
@@ -838,7 +838,8 @@ function (ko, _, $)
 
             // Create the collection
             var collectionType = componentCopy.viewModel;
-            viewModel[collectionName] = new application.ViewModelCollection(collectionType);
+            var vmc = new application.ViewModelCollection(collectionType);
+            viewModel[collectionName] = function () { return vmc; };
         }, this);
 
         return viewModel;
