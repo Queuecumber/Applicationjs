@@ -8,8 +8,8 @@ function (ko, _, $)
             var redirect = ko.observable();
             var fallback = {};
 
-            if(allBindings.has('default'))
-                fallback = allBindings.get('default');
+            if(allBindings.has('sentinel'))
+                fallback = allBindings.get('sentinel');
 
             // Trick: since we can't share a state between the init and update
             // functions (the redirect and fallback variables are the state),
