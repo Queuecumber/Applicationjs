@@ -1,12 +1,7 @@
-// Application class
-// Requries a datamodel in the "Model" module
-// Manages switching ui components which are views and associated viewmodels
-// Views are HTML partial pages, ViewModels are the underlying databindings and behavior
-// of the View. The ViewModel should take and return data to the Model object.
 define(['knockout', 'underscore', 'jquery'],
 function (ko, _, $)
 {
-    // Add the guard and sentinel handlers
+    // Add the guard and sentinel binding handlers
     ko.bindingHandlers.guard = {
         init: function(element, valueAccessor, allBindings, viewModel, bindingContext)
         {
@@ -45,7 +40,8 @@ function (ko, _, $)
         }
     };
 
-    var ActivationParameters = {};
+    // Add the activate binding handler
+    var activationParameters = {};
     ko.bindingHandlers.activate = {
         update: function(element, valueAccessor, allBindings, viewModel, bindingContext)
         {
@@ -54,26 +50,15 @@ function (ko, _, $)
             var value = valueAccessor();
             var activationParameter = ko.unwrap(value);
 
-            ActivationParameters[guid] = activationParameter;
+            activationParameters[guid] = activationParameter;
         }
     };
 
-    // Page Composition Algorithm:
-    // -----------------------------------
-    // 1. Find all data-component nodes and insert into queue (processing the DOM breadth-first)
-    // 2. Take a node off the queue, parse the nodes parameters if any
-    // 3. Add events and fields to the node and loaded component
-    // 4. Find the components parent, use Application if none, and add variable containers for that component
-    // 5. Add visibility and context databindings to the root node
-    // 6. Insert the expanded template into the components root as html
-    // 7. Parse the components html children for data-component nodes and add them to the queue
-    // 8. When the queue is empty, the page is finished loading
-
     // Application public interface
-    var Application = {
+    var application = {
 
-        Guid: {
-            NewGuid: function ()
+        guid: {
+            newGuid: function ()
             {
                 return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c)
                 {
@@ -83,22 +68,22 @@ function (ko, _, $)
             }
         },
 
-        Model: ko.observable({}),
+        model: ko.observable({}),
 
-        Name: ko.observable(''),
+        name: ko.observable(''),
 
-        Components: ko.observableArray([]),
+        components: ko.observableArray([]),
 
-        Visible: ko.observable(true),
+        visible: ko.observable(true),
 
-        Children: function ()
+        children: function ()
         {
             // Grab direct children
             var children = _.chain(this)
                             .filter(ko.isObservable)
                             .filter(function (obs)
                             {
-                                return obs() instanceof Application.ViewModel;
+                                return obs() instanceof application.ViewModel;
                             })
                             .map(function (vm)
                             {
@@ -108,8 +93,8 @@ function (ko, _, $)
 
             // Grab children in collections
             var collectionChildren = _.chain(this)
-                                      .filter(function (prop) { return prop instanceof Application.ViewModelCollection; })
-                                      .map(function (vmc) { return vmc.ViewModels(); })
+                                      .filter(function (prop) { return prop instanceof application.ViewModelCollection; })
+                                      .map(function (vmc) { return vmc.viewModels(); })
                                       .flatten()
                                       .map(function (vm)
                                       {
@@ -122,48 +107,48 @@ function (ko, _, $)
         },
 
         // Composes the page and applies data bindings
-        Compose: function (components)
+        compose: function (components)
         {
-            $('body').attr('data-bind', 'visible: Visible');
+            $('body').attr('data-bind', 'visible: visible');
 
             if(!components)
             {
                 $.ajaxSetup({ async: false });
-                $.getJSON('Components.json', function (c) { components = c; });
+                $.getJSON('components.json', function (c) { components = c; });
                 $.ajaxSetup({ async: true });
             }
 
-            this.Components(components);
-            LoadComponents(_.bind(function()
+            this.components(components);
+            loadComponents(_.bind(function()
             {
                 // Apply initial component types
-                TypeComponents($('body'));
+                typeComponents($('body'));
 
                 var topLevelComponents = $('[data-component]').toArray();
-                var expandedModels = ExpandComponents(topLevelComponents);
+                var expandedModels = expandComponents(topLevelComponents);
 
                 // trigger loaded event from bottom up
                 expandedModels.reverse();
-                _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
+                _(expandedModels).each(function (comp) { comp.loaded.trigger(); });
 
                 // Apply databindings
                 ko.applyBindings(this);
 
                 // Trigger that the application as a whole is loaded
-                this.Loaded.Trigger();
+                this.loaded.trigger();
 
                 // Activate any immediate children that are set to auto-activate
-                _(this.Children()).each(function (vm)
+                _(this.children()).each(function (vm)
                 {
-                    if(!vm.Active() && vm.View && vm.View().data('activate') !== undefined)
+                    if(!vm.active() && vm.view && vm.view().data('activate') !== undefined)
                     {
-                        if(vm.Uid in ActivationParameters)
+                        if(vm.uid in activationParameters)
                         {
-                            vm.Activate(ActivationParameters[vm.Uid]);
+                            vm.activate(activationParameters[vm.uid]);
                         }
                         else
                         {
-                            vm.Activate();
+                            vm.activate();
                         }
                     }
                 });
@@ -172,20 +157,20 @@ function (ko, _, $)
         },
 
         // Find an component by id using a depth first search (recursive)
-        Find: function (componentId)
+        find: function (componentId)
         {
             var target = null;
 
-            _(this.Children()).each(function (child)
+            _(this.children()).each(function (child)
             {
                 var foundChild = null;
-                if (child.Uid == componentId)
+                if (child.uid == componentId)
                 {
                     foundChild = child;
                 }
                 else
                 {
-                    foundChild = child.Find(componentId);
+                    foundChild = child.find(componentId);
                 }
 
                 if (foundChild != null)
@@ -198,17 +183,17 @@ function (ko, _, $)
         },
 
         // Inject a component dynamically
-        InjectComponent: function (component)
+        injectComponent: function (component)
         {
             // Expand the component into the DOM
-            var viewModels = ExpandComponent(component);
+            var viewModels = expandComponent(component);
             viewModels.reverse();
 
             // Trigger loaded handlers from the bottom up
-            _(viewModels).each(function (vm) { vm.Loaded.Trigger(); });
+            _(viewModels).each(function (vm) { vm.loaded.trigger(); });
 
             // Apply bindings to the root level injected node using its parent
-            var parent = _(viewModels).last().Parent();
+            var parent = _(viewModels).last().parent();
             ko.applyBindingsToNode(component, null, parent);
 
             // Return the root of the injected componentsQueue
@@ -219,184 +204,186 @@ function (ko, _, $)
         Event: function ()
         {
             // Generate a unique id if one was not provided
-            this.Id = Application.Guid.NewGuid();
+            this.id = application.guid.newGuid();
 
             // Attaches an event handler
-            this.On = _.bind(function ()
+            this.on = _.bind(function ()
             {
                 var args = $.makeArray(arguments);
 
-                return $(this).on.apply($(this), [this.Id].concat(args));
+                return $(this).on.apply($(this), [this.id].concat(args));
             }, this);
 
             // Detaches an event handler
-            this.Off = _.bind(function ()
+            this.off = _.bind(function ()
             {
                 var args = $.makeArray(arguments);
 
-                return $(this).off.apply($(this), [this.Id].concat(args));
+                return $(this).off.apply($(this), [this.id].concat(args));
             }, this);
 
             // Triggers the event
-            this.Trigger = _.bind(function ()
+            this.trigger = _.bind(function ()
             {
-                return $(this).triggerHandler(this.Id, arguments);
+                return $(this).triggerHandler(this.id, arguments);
             }, this);
         },
 
         RoutedEvent: function ()
         {
             // Track the routed signal using a private event that can only be triggered internally
-            var event = new Application.Event();
+            var event = new application.Event();
 
             // Triggers the routed events
             var triggerRoute = _.bind(function ()
             {
                 var argsWithoutEvent = $.makeArray(arguments).slice(1);
-                event.Trigger.apply(this, argsWithoutEvent);
+                event.trigger.apply(this, argsWithoutEvent);
             }, this);
 
             // Adds an event whose signal will be routed
-            this.AddRoute = _.bind(function (ev)
+            this.addRoute = _.bind(function (ev)
             {
-                ev.On(triggerRoute);
+                ev.on(triggerRoute);
             }, this);
 
             // Removes an event from routing
-            this.RemoveRoute = _.bind(function (ev)
+            this.removeRoute = _.bind(function (ev)
             {
-                ev.Off(triggerRoute);
+                ev.off(triggerRoute);
             }, this);
 
             // Allow turning on and off subscriptions to the routed signals
-            this.On = event.On;
-            this.Off = event.Off;
+            this.on = event.on;
+            this.off = event.off;
         },
 
         // Viewmodel prototype parent
         ViewModel: function ()
         {
             // Observable property controls visibility
-            this.Visible = ko.observable(false);
+            this.visible = ko.observable(false);
 
             // Parent, children, and find child function
-            this.Parent = ko.observable({});
-            this.Children = Application.Children;
-            this.Find = Application.Find;
+            this.parent = ko.observable({});
+            this.children = application.children;
+            this.find = application.find;
 
             // Loaded event, fired after the components view is added and its viewmodel is set up
-            this.Loaded = new Application.Event();
+            this.loaded = new application.Event();
 
             // Tracks if a component is active, not settable
             var isActive = false;
-            this.Active = function () { return isActive; } // Tracks if the component is active
+            this.active = function () { return isActive; } // Tracks if the component is active
 
             // Activates the component, any number of arguments can be passed to the activation handlers
-            this.Activate = function ()
+            this.activate = function ()
             {
-                this.Visible(true);
+                this.visible(true);
                 isActive = true;
 
-                if (this.View && this.View().data('componentType') == 'collection')
+                if (this.view && this.view().data('componentType') == 'collection')
                 {
-                    var data = ko.dataFor(this.View().get(0));
+                    var data = ko.dataFor(this.view().get(0));
 
                     var args = $.makeArray(arguments);
 
                     var params = args.concat(data);
-                    this.Activated.Trigger.apply(this.Activated, params);
+                    this.activated.trigger.apply(this.activated, params);
                 }
                 else
                 {
-                    this.Activated.Trigger.apply(this.Activated, arguments);
+                    this.activated.trigger.apply(this.activated, arguments);
                 }
 
-                _(this.Children()).each(function (vm)
+                _(this.children()).each(function (vm)
                 {
-                    if(!vm.Active() && vm.View && vm.View().data('activate') !== undefined)
+                    if(!vm.active() && vm.view && vm.view().data('activate') !== undefined)
                     {
-                        if(vm.Uid in ActivationParameters)
+                        if(vm.uid in activationParameters)
                         {
-                            vm.Activate(ActivationParameters[vm.Uid]);
+                            vm.activate(activationParameters[vm.uid]);
                         }
                         else
                         {
-                            vm.Activate();
+                            vm.activate();
                         }
                     }
                 });
             };
-            this.Activated = new Application.Event(); // Activated event
+            this.activated = new application.Event(); // Activated event
 
             // Finishes the component, any number of arguments can be passed to the finish handlers
-            this.Finish = function ()
+            this.finish = function ()
             {
-                this.Visible(false);
+                this.visible(false);
                 isActive = false;
-                this.Finished.Trigger.apply(this.Finished, arguments);
+                this.finished.trigger.apply(this.finished, arguments);
 
-            	_(this.Children()).each(function (vm)
+            	_(this.children()).each(function (vm)
             	{
-        			if(vm.Active())
-            			vm.Finish();
+        			if(vm.active())
+            			vm.finish();
             	});
             };
-            this.Finished = new Application.Event(); // Finish event
+            this.finished = new application.Event(); // Finish event
 
             // Unique identifier
-            this.Uid = Application.Guid.NewGuid();
+            this.uid = application.guid.newGuid();
 
             // Gets the root of the components view
-            this.View = _.bind(function () { return $('#' + this.Uid); }, this);
+            this.view = _.bind(function () { return $('#' + this.uid); }, this);
 
-            // Removes the component's view which triggers removal of the entire component
-            this.Remove = _.bind(function () { this.View().remove(); }, this);
-            this.Removed = new Application.Event(); // Removed event
-            this.ChildRemoved = new Application.Event(); // Child removed event
+            // Removes the component's view which triggers removal of the entire component, this will
+            // happen automatically (along with triggering of any events) when the DOM observer
+            // catches this change
+            this.remove = _.bind(function () { this.view().remove(); }, this);
+            this.removed = new application.Event(); // Removed event
+            this.childRemoved = new application.Event(); // Child removed event
 
             function filterProperties(filterFunction)
             {
                 return _.chain(this)
                         .map(function (prop, key)
                         {
-                            return { Name: key, Property: prop };
+                            return { name: key, property: prop };
                         })
                         .filter(filterFunction)
                         .value();
             }
 
             // Gets any events attached to the viewmodel
-            this.Events = function ()
+            this.events = function ()
             {
                 return filterProperties.apply(this, [function (desc)
                         {
-                            return desc.Property instanceof Application.Event;
+                            return desc.property instanceof application.Event;
                         }]);
             };
 
             // Get functions of the viewmodel
-            this.Functions = function ()
+            this.functions = function ()
             {
                 return filterProperties.apply(this, [function (desc)
                         {
-                            return typeof(desc.Property) == 'function' && !ko.isObservable(desc.Property);
+                            return typeof(desc.property) == 'function' && !ko.isObservable(desc.property);
                         }]);
             };
 
-            this.Observables = function ()
+            this.observables = function ()
             {
                 return filterProperties.apply(this, [function (desc)
                 {
-                    return ko.isObservable(desc.Property);
+                    return ko.isObservable(desc.property);
                 }]);
             };
 
             // Get non-function, non-event proprties of the viewmodel
-            this.Properties = function ()
+            this.properties = function ()
             {
                 return filterProperties.apply(this, [function (desc)
                 {
-                    return typeof(desc.Property) != 'function' && !(desc.Property instanceof Application.Event);
+                    return typeof(desc.property) != 'function' && !(desc.property instanceof application.Event);
                 }]);
             };
         },
@@ -408,23 +395,23 @@ function (ko, _, $)
             var collectionPrototype = new collectionType();
 
             // Create routed events for any of the user defined events so that handlers can be attached collection-wide
-            var events = collectionPrototype.Events();
+            var events = collectionPrototype.events();
             _(events).each(function (ev)
             {
-                this[ev.Name] = new Application.RoutedEvent();
+                this[ev.name] = new application.RoutedEvent();
             }, this);
 
             // Create functions that can be called collection wide
-            var functions = collectionPrototype.Functions();
+            var functions = collectionPrototype.functions();
             _(functions).each(function (f)
             {
-                this[f.Name] = function ()
+                this[f.name] = function ()
                 {
                     var args = _.toArray(arguments);
                     var returns = [];
-                    _(this.ViewModels()).each(function (vm)
+                    _(this.viewModels()).each(function (vm)
                     {
-                        var ret = vm()[f.Name].apply(vm(), args);
+                        var ret = vm()[f.name].apply(vm(), args);
                         returns.push(ret);
                     });
 
@@ -433,24 +420,24 @@ function (ko, _, $)
             }, this);
 
             // Create observables that can be get/set collection wide
-            var observables = collectionPrototype.Observables();
+            var observables = collectionPrototype.observables();
             _(observables).each(function (o)
             {
-                this[o.Name] = function (val)
+                this[o.name] = function (val)
                 {
                     if(val)
                     {
-                        _(this.ViewModels()).each(function (vm)
+                        _(this.viewModels()).each(function (vm)
                         {
-                            vm()[o.Name](val);
+                            vm()[o.name](val);
                         });
                     }
                     else
                     {
                         var vals = [];
-                        _(this.ViewModels()).each(function (vm)
+                        _(this.viewModels()).each(function (vm)
                         {
-                            vals.push(vm()[o.Name]());
+                            vals.push(vm()[o.name]());
                         });
 
                         return vals;
@@ -459,20 +446,20 @@ function (ko, _, $)
             }, this);
 
             // Create properties that can be get/set collection wide
-            var properties = collectionPrototype.Properties();
+            var properties = collectionPrototype.properties();
             var addedProperties = [];
             _(properties).each(function (p)
             {
                 var vmc = this;
 
-                Object.defineProperty(this, p.Name, {
+                Object.defineProperty(this, p.name, {
                     enumerable: true,
                     get: function ()
                     {
                         var vals = [];
-                        _(vmc.ViewModels()).each(function (vm)
+                        _(vmc.viewModels()).each(function (vm)
                         {
-                            vals.push(vm()[p.Name]);
+                            vals.push(vm()[p.name]);
                         });
 
                         return vals;
@@ -482,17 +469,17 @@ function (ko, _, $)
                     {
                         _(vmc.ViewModels()).each(function (vm)
                         {
-                            vm()[p.Name] = val;
+                            vm()[p.name] = val;
                         });
                     }
                 });
 
-                addedProperties.push(p.Name);
+                addedProperties.push(p.name);
 
             }, this);
 
             // Gets the viewmodels in the collection
-            this.ViewModels = function ()
+            this.viewModels = function ()
             {
                 // Remove properties added as children to avoid infinite recursion
                 var safeProperties = [];
@@ -510,100 +497,100 @@ function (ko, _, $)
                         .filter(ko.isObservable)
                         .filter(function (prop)
                         {
-                            return prop() instanceof Application.ViewModel;
+                            return prop() instanceof application.ViewModel;
                         })
                         .value();
             };
 
             // Activate all viewmodels in the collection
-            this.Activate = _.bind(function ()
+            this.activate = _.bind(function ()
             {
                 var args = arguments;
 
-                _(this.ViewModels()).each(function (vm)
+                _(this.viewModels()).each(function (vm)
                 {
-                    vm().Activate.apply(vm(), args);
+                    vm().activate.apply(vm(), args);
                 });
             }, this);
-            this.Activated = new Application.RoutedEvent();
+            this.activated = new application.RoutedEvent();
 
             // Finish all viewmodels in the collection
-            this.Finish = _.bind(function ()
+            this.finish = _.bind(function ()
             {
                 var args = arguments;
 
-                _(this.ViewModels()).each(function (vm)
+                _(this.viewModels()).each(function (vm)
                 {
-                    vm().Finish.apply(vm(), args);
+                    vm().finish.apply(vm(), args);
                 });
             }, this);
-            this.Finished = new Application.RoutedEvent();
+            this.finished = new application.RoutedEvent();
 
             // Add a viewmodel to the collection
-            this.Add = _.bind(function (vm)
+            this.add = _.bind(function (vm)
             {
                 // Route user events
-                _(vm.Events()).each(function (ev)
+                _(vm.events()).each(function (ev)
                 {
-                    if (ev.Name in this)
+                    if (ev.name in this)
                     {
-                        this[ev.Name].AddRoute(ev.Property);
+                        this[ev.name].addRoute(ev.property);
                     }
                 }, this);
 
                 // Route standard events
-                this.Loaded.AddRoute(vm.Loaded);
-                this.Activated.AddRoute(vm.Activated);
-                this.Finished.AddRoute(vm.Finished);
-                this.Removed.AddRoute(vm.Removed);
-                this.ChildRemoved.AddRoute(vm.ChildRemoved);
+                this.loaded.addRoute(vm.loaded);
+                this.activated.addRoute(vm.activated);
+                this.finished.addRoute(vm.finished);
+                this.removed.addRoute(vm.removed);
+                this.childRemoved.addRoute(vm.childRemoved);
 
                 // Add to the collection
-                this[vm.Uid] = ko.observable(vm);
+                this[vm.uid] = ko.observable(vm);
 
             }, this);
-            this.Loaded = new Application.RoutedEvent();
+            this.loaded = new application.RoutedEvent();
 
             // Remove a viewmodel from the collection
-            this.Remove = _.bind(function (vm)
+            this.remove = _.bind(function (vm)
             {
                 // Make sure the component is in the collection
-                if (vm.Uid in this)
+                if (vm.uid in this)
                 {
                     // Remove the component
-                    delete this[vm.Uid];
+                    delete this[vm.uid];
 
                     // Remove routing for standard event handlers
-                    this.Loaded.RemoveRoute(vm.Loaded);
-                    this.Activated.RemoveRoute(vm.Activated);
-                    this.Finished.RemoveRoute(vm.Finished);
-                    this.Removed.RemoveRoute(vm.Removed);
-                    this.ChildRemoved.RemoveRoute(vm.ChildRemoved);
+                    this.loaded.removeRoute(vm.loaded);
+                    this.activated.removeRoute(vm.activated);
+                    this.finished.removeRoute(vm.ainished);
+                    this.removed.removeRoute(vm.removed);
+                    this.childRemoved.removeRoute(vm.childRemoved);
 
                     // Remove routing for user events
-                    _(vm.Events()).each(function (ev)
+                    _(vm.events()).each(function (ev)
                     {
-                        if (ev.Name in this)
+                        if (ev.name in this)
                         {
-                            this[ev.Name].RemoveRoute(ev.Property);
+                            this[ev.name].removeRoute(ev.property);
                         }
                     }, this);
                 }
             }, this);
-            this.Removed = new Application.RoutedEvent();
-            this.ChildRemoved = new Application.RoutedEvent();
+            this.removed = new application.RoutedEvent();
+            this.childRemoved = new application.RoutedEvent();
         }
     }
 
     // Application events
-    Application.Loaded = new Application.Event();   // Triggered when the application is finished loading
+    application.loaded = new application.Event();   // Triggered when the application is finished loading
 
-    Application.ChildRemoved = new Application.Event(); // Triggered when a direct child of Application is removed
+    application.childRemoved = new application.Event(); // Triggered when a direct child of Application is removed
 
     // Application private interface
 
     // Parses a javascript object from a string, NOT json
-    function ParseJsObject(string)
+    function parseJsObject(string)
     {
         // Use 'eval' to create a javascript object from the malformed JSON
         // NOTE: there are some security concerns with this method
@@ -614,7 +601,7 @@ function (ko, _, $)
     }
 
     // Loads view templates and styles for each component
-    function _LoadComponents(callback)
+    function _loadComponents(callback)
     {
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
@@ -623,24 +610,24 @@ function (ko, _, $)
         var viewmodelIdx = [];
 
         // Preload styles and templates for each component
-        _(this.Components()).each(function (comp, i)
+        _(this.components()).each(function (comp, i)
         {
             // Append the style node to the pages head
-            if ('Style' in comp)
+            if ('style' in comp)
             {
-                var styleLink = $('<link rel="stylesheet" type="text/css" href="' + comp.Style + '"/>');
+                var styleLink = $('<link rel="stylesheet" type="text/css" href="' + comp.style + '"/>');
                 $('head').append(styleLink);
             }
 
             // Load the view template and store it for later
-            $.get(comp.View, {}, function (viewData)
+            $.get(comp.view, {}, function (viewData)
             {
-                comp.Template = viewData;
+                comp.template = viewData;
             });
 
-            if(typeof comp.ViewModel == 'string')
+            if(typeof comp.viewModel == 'string')
             {
-                viewmodelPaths.push(comp.ViewModel);
+                viewmodelPaths.push(comp.viewModel);
                 viewmodelIdx.push(i);
             }
         });
@@ -655,7 +642,7 @@ function (ko, _, $)
             {
                 for(var i = 0; i < arguments.length; i++)
                 {
-                    this.Components()[viewmodelIdx[i]].ViewModel = arguments[i];
+                    this.components()[viewmodelIdx[i]].viewModel = arguments[i];
                 }
 
                 callback();
@@ -666,19 +653,19 @@ function (ko, _, $)
             callback();
         }
     }
-    var LoadComponents = _.bind(_LoadComponents, Application);
+    var loadComponents = _.bind(_loadComponents, application);
 
     // Shorthand to expand a single component
     // returns a tree structure in an array of the expanded components
-    function _ExpandComponent(component)
+    function _expandComponent(component)
     {
-        return ExpandComponents([component]);
+        return expandComponents([component]);
     }
-    var ExpandComponent = _.bind(_ExpandComponent, Application);
+    var expandComponent = _.bind(_expandComponent, application);
 
     // Expands a data-component element into its component, uses a breadth-first traversal
     // Returns a list of the constructed view models that were expanded
-    function _ExpandComponents(components)
+    function _expandComponents(components)
     {
         var componentsQueue = components;
         var viewModels = [];
@@ -693,10 +680,10 @@ function (ko, _, $)
             if (componentType != 'collection' && componentType != 'conditional')
             {
                 // Find the component description
-                var component = _(this.Components()).findWhere({ Name: componentName });
+                var component = _(this.components()).findWhere({ name: componentName });
                 if (component)
                 {
-                    var viewModel = BuildComponent(componentRoot, component);
+                    var viewModel = buildComponent(componentRoot, component);
 
                     // Add the view model to the list of view models that were processed
                     viewModels.push(viewModel);
@@ -713,7 +700,7 @@ function (ko, _, $)
 
         return viewModels;
     }
-    var ExpandComponents = _.bind(_ExpandComponents, Application);
+    var expandComponents = _.bind(_expandComponents, application);
 
     // Dom node removal observer, used to clean up viewmodels when their views are removed
     var domObserver = new MutationObserver(function (mutations)
@@ -731,20 +718,20 @@ function (ko, _, $)
             var uid = $(node).attr('id');
 
             // Find the viewmodel
-            var viewModel = Application.Find(uid);
+            var viewModel = application.find(uid);
 
             // If no viewmodel was found, its parent was removed already, this can be ignored
             if (viewModel)
             {
                 // Get the parent and field name
                 var fieldName = $(node).data('name');
-                var parent = viewModel.Parent();
+                var parent = viewModel.parent();
 
                 // Collection nodes need extra processing
                 if ($(node).data('componentType') == 'collection')
                 {
                     // Remove the viewmodel from the collection in the parent
-                    parent[fieldName].Remove(viewModel);
+                    parent[fieldName].remove(viewModel);
                 }
                 else
                 {
@@ -753,40 +740,40 @@ function (ko, _, $)
                 }
 
                 // Trigger removal events
-                viewModel.Removed.Trigger();
-                parent.ChildRemoved.Trigger(viewModel);
+                viewModel.removed.trigger();
+                parent.childRemoved.trigger(viewModel);
             }
         });
     });
 
-    function _BuildComponent(componentRoot, component, type)
+    function _buildComponent(componentRoot, component, type)
     {
         // Get the components view parameters
         var params = componentRoot.data('parameters');
         if (params)
         {
-            params = ParseJsObject(params);
+            params = parseJsObject(params);
         }
 
         // Get the name to use as a field name
         var fieldName = componentRoot.data('name');
 
         // Create the view model and add standard fields
-        var viewModelProto = new Application.ViewModel();
+        var viewModelProto = new application.ViewModel();
         var componentCopy = $.extend(true, {}, component);
-        componentCopy.ViewModel.prototype = viewModelProto;
-        var viewModel = new componentCopy.ViewModel();
+        componentCopy.viewModel.prototype = viewModelProto;
+        var viewModel = new componentCopy.viewModel();
 
         // Find the parent of the view, using app when there is no parent
         var parentRoot = componentRoot.parent().closest('[data-component]');
         var parent = this;
         if (parentRoot.length > 0)
         {
-            var parent = this.Find(parentRoot.attr('id'));
+            var parent = this.find(parentRoot.attr('id'));
         }
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
-        viewModel.Parent(parent);
+        viewModel.parent(parent);
 
         if (type != 'collection')
         {
@@ -797,7 +784,7 @@ function (ko, _, $)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            var dbString = 'visible: ' + fieldName + '().Visible, with: ' + fieldName;
+            var dbString = 'visible: ' + fieldName + '().visible, with: ' + fieldName;
 
             if(componentRoot.attr('data-bind') !== undefined)
                 dbString += ', ' + componentRoot.attr('data-bind');
@@ -807,13 +794,13 @@ function (ko, _, $)
         else
         {
             // Add the component to the collection property
-            parent[fieldName].Add(viewModel);
+            parent[fieldName].add(viewModel);
 
             // Listen for removal events
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            var dbString = 'visible: $parent.' + fieldName + '["' + viewModel.Uid + '"]().Visible, with: $parent.' + fieldName + '["' + viewModel.Uid + '"]';
+            var dbString = 'visible: $parent.' + fieldName + '["' + viewModel.uid + '"]().visible, with: $parent.' + fieldName + '["' + viewModel.uid + '"]';
 
             if(componentRoot.attr('data-bind') !== undefined)
                 dbString += ', ' + componentRoot.attr('data-bind');
@@ -821,17 +808,17 @@ function (ko, _, $)
             componentRoot.attr('data-bind', dbString);
         }
 
-        componentRoot.attr('id', viewModel.Uid);
+        componentRoot.attr('id', viewModel.uid);
         componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
 
         // Compile the view using its parameters
-        var compiledView = _.template(component.Template, params);
+        var compiledView = _.template(component.template, params);
 
         // Insert the compiled view into the DOM
         componentRoot.html(compiledView);
 
         // Type any child components
-        TypeComponents(componentRoot);
+        typeComponents(componentRoot);
 
         // Get any child collection components and add fields for them so that collection-wide event handlers can be attached
         var childCollections = componentRoot.find('[data-component-type="collection"]');
@@ -842,23 +829,23 @@ function (ko, _, $)
 
             // Get the component that will be kept in the collection
             var componentName = $(collection).data('component');
-            var component = _(this.Components()).findWhere({ Name: componentName });
+            var component = _(this.components()).findWhere({ name: componentName });
 
             // Create the prototype for the viewmodel
-            var viewModelProto = new Application.ViewModel();
+            var viewModelProto = new application.ViewModel();
             var componentCopy = $.extend(true, {}, component);
-            componentCopy.ViewModel.prototype = viewModelProto;
+            componentCopy.viewModel.prototype = viewModelProto;
 
             // Create the collection
-            var collectionType = componentCopy.ViewModel;
-            viewModel[collectionName] = new Application.ViewModelCollection(collectionType);
+            var collectionType = componentCopy.viewModel;
+            viewModel[collectionName] = new application.ViewModelCollection(collectionType);
         }, this);
 
         return viewModel;
     }
-    var BuildComponent = _.bind(_BuildComponent, Application);
+    var buildComponent = _.bind(_buildComponent, application);
 
-    function TypeComponents(root)
+    function typeComponents(root)
     {
         // Select foreach data-binds and mark components inside as having type "collection"
         var collectionComponents = root.find('[data-bind*="foreach:"] [data-component]');
@@ -870,7 +857,7 @@ function (ko, _, $)
     }
 
     // Updates the title element when the application name is set
-    Application.Name.subscribe(function (value)
+    application.name.subscribe(function (value)
     {
         var titleElem = $('title');
         if (titleElem.length > 0)
@@ -893,22 +880,22 @@ function (ko, _, $)
         if (componentType)
         {
             // Find the component description
-            var component = _(Application.Components()).findWhere({ Name: componentName });
+            var component = _(application.components()).findWhere({ name: componentName });
             if (component)
             {
-                var viewModel = BuildComponent($(node), component, componentType);
+                var viewModel = buildComponent($(node), component, componentType);
 
-                var childComponents = viewModel.View().find('[data-component]').toArray();
-                var expandedModels = ExpandComponents(childComponents);
+                var childComponents = viewModel.view().find('[data-component]').toArray();
+                var expandedModels = expandComponents(childComponents);
 
                 // trigger loaded event from bottom up
                 expandedModels.reverse();
-                _(expandedModels).each(function (comp) { comp.Loaded.Trigger(); });
+                _(expandedModels).each(function (comp) { comp.loaded.trigger(); });
 
-                viewModel.Loaded.Trigger();
+                viewModel.loaded.trigger();
             }
         }
     };
 
-    return Application;
+    return application;
 });
