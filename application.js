@@ -93,8 +93,9 @@ function (ko, _, $)
 
             // Grab children in collections
             var collectionChildren = _.chain(this)
-                                      .filter(function (prop) { return prop instanceof application.ViewModelCollection; })
-                                      .map(function (vmc) { return vmc.viewModels(); })
+                                      .filter(ko.isObservable)
+                                      .filter(function (prop) { return prop() instanceof application.ViewModelCollection; })
+                                      .map(function (vmc) { return vmc().viewModels(); })
                                       .flatten()
                                       .map(function (vm)
                                       {
@@ -527,6 +528,7 @@ function (ko, _, $)
             this.finished = new application.RoutedEvent();
 
             // Add a viewmodel to the collection
+            this.viewModelAdded = new application.Event();
             this.add = _.bind(function (vm)
             {
                 // Route user events
@@ -548,10 +550,13 @@ function (ko, _, $)
                 // Add to the collection
                 this[vm.uid] = ko.observable(vm);
 
+                this.viewModelAdded.trigger(vm);
+
             }, this);
             this.loaded = new application.RoutedEvent();
 
             // Remove a viewmodel from the collection
+            this.viewModelRemoved = new application.Event();
             this.remove = _.bind(function (vm)
             {
                 // Make sure the component is in the collection
@@ -575,6 +580,8 @@ function (ko, _, $)
                             this[ev.name].removeRoute(ev.property);
                         }
                     }, this);
+
+                    this.viewModelRemoved.trigger(vm);
                 }
             }, this);
             this.removed = new application.RoutedEvent();
@@ -839,7 +846,7 @@ function (ko, _, $)
             // Create the collection
             var collectionType = componentCopy.viewModel;
             var vmc = new application.ViewModelCollection(collectionType);
-            viewModel[collectionName] = function () { return vmc; };
+            viewModel[collectionName] = ko.observable(vmc);
         }, this);
 
         return viewModel;
