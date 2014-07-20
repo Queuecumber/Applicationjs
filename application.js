@@ -467,7 +467,7 @@ function (ko, _, $)
 
                     set: function (val)
                     {
-                        _(vmc.ViewModels()).each(function (vm)
+                        _(vmc.viewModels()).each(function (vm)
                         {
                             vm()[p.name] = val;
                         });
@@ -563,7 +563,7 @@ function (ko, _, $)
                     // Remove routing for standard event handlers
                     this.loaded.removeRoute(vm.loaded);
                     this.activated.removeRoute(vm.activated);
-                    this.finished.removeRoute(vm.ainished);
+                    this.finished.removeRoute(vm.finished);
                     this.removed.removeRoute(vm.removed);
                     this.childRemoved.removeRoute(vm.childRemoved);
 
