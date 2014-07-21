@@ -429,7 +429,7 @@ function (ko, _, $)
             {
                 this[o.name] = function (val)
                 {
-                    if(val)
+                    if(val !== undefined)
                     {
                         _(this.viewModels()).each(function (vm)
                         {
