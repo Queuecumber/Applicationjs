@@ -3,6 +3,8 @@
 define(['knockout', 'underscore', 'jquery'],
 function (ko, _, $)
 {
+    'use strict';
+
     // Add the guard and sentinel binding handlers
     ko.bindingHandlers.guard = {
         init: function(element, valueAccessor, allBindings, viewModel, bindingContext)
