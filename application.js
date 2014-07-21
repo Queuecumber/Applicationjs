@@ -686,6 +686,7 @@ function (ko, _, $)
         var componentsQueue = components;
         var viewModels = [];
 
+        var enqueueComponent = function (c) { componentsQueue.push(c); };
         while (componentsQueue.length > 0)
         {
             var componentRoot = $(componentsQueue.shift()); // dequeue operation
@@ -706,7 +707,7 @@ function (ko, _, $)
 
                     // Find any child data-component nodes and push them onto the queue
                     var childComponents = componentRoot.find('[data-component]').toArray();
-                    _(childComponents).each(componentsQueue.push);
+                    _(childComponents).each(enqueueComponent);
                 }
             }
         }
