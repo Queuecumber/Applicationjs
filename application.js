@@ -1,5 +1,3 @@
-// We need to use eval, so tell jshint to ignore it even though it technically is evil
-/*jshint -W061 */
 define(['knockout', 'underscore', 'jquery'],
 function (ko, _, $)
 {
@@ -348,6 +346,7 @@ function (ko, _, $)
 
             function filterProperties(filterFunction)
             {
+                /*jshint validthis:true */
                 return _.chain(this)
                         .map(function (prop, key)
                         {
@@ -394,10 +393,10 @@ function (ko, _, $)
         },
 
         // Manages a collection of viewmodels
-        ViewModelCollection: function (collectionType)
+        ViewModelCollection: function (CollectionType)
         {
             // Get a prototype of the components this collection will manage
-            var collectionPrototype = new collectionType();
+            var collectionPrototype = new CollectionType();
 
             // Create routed events for any of the user defined events so that handlers can be attached collection-wide
             var events = collectionPrototype.events();
@@ -603,6 +602,8 @@ function (ko, _, $)
     // Parses a javascript object from a string, NOT json
     function parseJsObject(string)
     {
+        /*jshint evil:true */
+
         // Use 'eval' to create a javascript object from the malformed JSON
         // NOTE: there are some security concerns with this method
         var parenString = '(' + string + ')'; // object literals must be enclosed in parenthesis for eval to work properly
@@ -614,6 +615,8 @@ function (ko, _, $)
     // Loads view templates and styles for each component
     function _loadComponents(callback)
     {
+        /*jshint validthis:true */
+
         // Put JQuery AJAX into synchronous mode for this algorithm to work, we will clear this flag once page loading is complete
         $.ajaxSetup({ async: false });
 
@@ -678,6 +681,8 @@ function (ko, _, $)
     // Returns a list of the constructed view models that were expanded
     function _expandComponents(components)
     {
+        /*jshint validthis:true */
+
         var componentsQueue = components;
         var viewModels = [];
 
@@ -756,6 +761,8 @@ function (ko, _, $)
 
     function _buildComponent(componentRoot, component, type)
     {
+        /*jshint validthis:true */
+
         // Get the components view parameters
         var params = componentRoot.data('parameters');
         if (params)
