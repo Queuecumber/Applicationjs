@@ -599,19 +599,6 @@ function (ko, _, $)
 
     // Application private interface
 
-    // Parses a javascript object from a string, NOT json
-    function parseJsObject(string)
-    {
-        /*jshint evil:true */
-
-        // Use 'eval' to create a javascript object from the malformed JSON
-        // NOTE: there are some security concerns with this method
-        var parenString = '(' + string + ')'; // object literals must be enclosed in parenthesis for eval to work properly
-        var obj = eval(parenString);
-
-        return obj;
-    }
-
     // Loads view templates and styles for each component
     function _loadComponents(callback)
     {
@@ -764,13 +751,6 @@ function (ko, _, $)
     {
         /*jshint validthis:true */
 
-        // Get the components view parameters
-        var params = componentRoot.data('parameters');
-        if (params)
-        {
-            params = parseJsObject(params);
-        }
-
         // Get the name to use as a field name
         var fieldName = componentRoot.data('name');
 
@@ -828,11 +808,8 @@ function (ko, _, $)
         componentRoot.attr('id', viewModel.uid);
         componentRoot.hide();   // Hide by default so that the views don't flash on the screen before knockout kicks in
 
-        // Compile the view using its parameters
-        var compiledView = _.template(component.template, params);
-
-        // Insert the compiled view into the DOM
-        componentRoot.html(compiledView);
+        // Insert the view into the DOM
+        componentRoot.html(component.template);
 
         // Type any child components
         typeComponents(componentRoot);
