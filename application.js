@@ -1,3 +1,5 @@
+// We need to use eval, so tell jshint to ignore it even though it technically is evil
+/*jshint -W061 */
 define(['knockout', 'underscore', 'jquery'],
 function (ko, _, $)
 {
@@ -174,7 +176,7 @@ function (ko, _, $)
                     foundChild = child.find(componentId);
                 }
 
-                if (foundChild != null)
+                if (foundChild !== null)
                 {
                     target = foundChild;
                 }
@@ -275,7 +277,7 @@ function (ko, _, $)
 
             // Tracks if a component is active, not settable
             var isActive = false;
-            this.active = function () { return isActive; } // Tracks if the component is active
+            this.active = function () { return isActive; }; // Tracks if the component is active
 
             // Activates the component, any number of arguments can be passed to the activation handlers
             this.activate = function ()
@@ -587,7 +589,7 @@ function (ko, _, $)
             this.removed = new application.RoutedEvent();
             this.childRemoved = new application.RoutedEvent();
         }
-    }
+    };
 
     // Application events
     application.loaded = new application.Event();   // Triggered when the application is finished loading
@@ -697,10 +699,7 @@ function (ko, _, $)
 
                     // Find any child data-component nodes and push them onto the queue
                     var childComponents = componentRoot.find('[data-component]').toArray();
-                    _(childComponents).each(function (child)
-                    {
-                        componentsQueue.push(child);
-                    });
+                    _(childComponents).each(componentsQueue.push);
                 }
             }
         }
@@ -776,12 +775,13 @@ function (ko, _, $)
         var parent = this;
         if (parentRoot.length > 0)
         {
-            var parent = this.find(parentRoot.attr('id'));
+            parent = this.find(parentRoot.attr('id'));
         }
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
         viewModel.parent(parent);
 
+        var dbString = '';
         if (type != 'collection')
         {
             // Add component property to parent
@@ -791,7 +791,7 @@ function (ko, _, $)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            var dbString = 'visible: ' + fieldName + '().visible, with: ' + fieldName;
+            dbString = 'visible: ' + fieldName + '().visible, with: ' + fieldName;
 
             if(componentRoot.attr('data-bind') !== undefined)
                 dbString += ', ' + componentRoot.attr('data-bind');
@@ -807,7 +807,7 @@ function (ko, _, $)
             domObserver.observe(componentRoot.parent().get(0), { childList: true });
 
             // Add databinding for visibility and context to the component root node
-            var dbString = 'visible: $parent.' + fieldName + '()["' + viewModel.uid + '"]().visible, with: $parent.' + fieldName + '()["' + viewModel.uid + '"]';
+            dbString = 'visible: $parent.' + fieldName + '()["' + viewModel.uid + '"]().visible, with: $parent.' + fieldName + '()["' + viewModel.uid + '"]';
 
             if(componentRoot.attr('data-bind') !== undefined)
                 dbString += ', ' + componentRoot.attr('data-bind');
