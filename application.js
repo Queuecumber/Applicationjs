@@ -245,7 +245,17 @@ function (ko, $)
                 // Apply initial component types
                 typeComponents($('body'));
 
+                // get the top level components for expansion
                 var topLevelComponents = $('[data-component]').toArray();
+
+                // prepare the application object for top-level collection components
+                var topLevelCollections = topLevelComponents.filter(function (component)
+                {
+                    return $(component).data('componentType') == 'collection';
+                });
+                prepareCollections(topLevelCollections, this);
+
+                // expand the viewmodel heirarchy
                 var expandedModels = expandComponents(topLevelComponents);
 
                 // trigger loaded event from bottom up
@@ -862,6 +872,31 @@ function (ko, $)
         });
     });
 
+    // prepare a viewmodel for child collection components
+    function _prepareCollections(childCollections, viewModel)
+    {
+        childCollections.forEach(function (collection)
+        {
+            // Get the name of the collection
+            var collectionName = $(collection).data('name');
+
+            // Get the component that will be kept in the collection
+            var componentName = $(collection).data('component');
+            var component = this.components().find(function (c) { return c.name == componentName; });
+
+            // Create the prototype for the viewmodel
+            var viewModelProto = new application.ViewModel();
+            var componentCopy = $.extend(true, {}, component);
+            componentCopy.viewModel.prototype = viewModelProto;
+
+            // Create the collection
+            var collectionType = componentCopy.viewModel;
+            var vmc = new application.ViewModelCollection(collectionType);
+            viewModel[collectionName] = ko.observable(vmc);
+        }, this);
+    }
+    var prepareCollections = _prepareCollections.bind(application);
+
     function _buildComponent(componentRoot, component, type)
     {
         /*jshint validthis:true */
@@ -931,25 +966,7 @@ function (ko, $)
 
         // Get any child collection components and add fields for them so that collection-wide event handlers can be attached
         var childCollections = componentRoot.find('[data-component-type="collection"]').toArray();
-        childCollections.forEach(function (collection)
-        {
-            // Get the name of the collection
-            var collectionName = $(collection).data('name');
-
-            // Get the component that will be kept in the collection
-            var componentName = $(collection).data('component');
-            var component = this.components().find(function (c) { return c.name == componentName; });
-
-            // Create the prototype for the viewmodel
-            var viewModelProto = new application.ViewModel();
-            var componentCopy = $.extend(true, {}, component);
-            componentCopy.viewModel.prototype = viewModelProto;
-
-            // Create the collection
-            var collectionType = componentCopy.viewModel;
-            var vmc = new application.ViewModelCollection(collectionType);
-            viewModel[collectionName] = ko.observable(vmc);
-        }, this);
+        prepareCollections(childCollections, viewModel);
 
         return viewModel;
     }
