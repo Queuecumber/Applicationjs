@@ -3,6 +3,68 @@ function (ko, $)
 {
     'use strict';
 
+    // Add the 'binding' property to jquery event objects for certain events
+    // to get the currently bound object easier
+    function addBindingProperty(e)
+    {
+        if(!e.binding)
+        {
+            e.binding = ko.dataFor(e.target);
+        }
+
+        return e;
+    }
+
+    var fixedEvents = [
+        'blur',
+        'change',
+        'click',
+        'dblclick',
+        'focus',
+        'focusin',
+        'focusout',
+        'hover',
+        'keydown',
+        'keypress',
+        'keyup',
+        'mousedown',
+        'mouseenter',
+        'mouseleave',
+        'mousemove',
+        'mouseout',
+        'mouseover',
+        'mouseup',
+        'resize',
+        'scroll',
+        'select',
+        'submit'
+    ];
+
+    fixedEvents.forEach(function (ename)
+    {
+        var fhObj = {};
+        if($.event.fixHooks[ename])
+        {
+            fhObj = $.event.fixHooks[ename];
+        }
+
+        if(!fhObj.filter)
+        {
+            fhObj.filter = addBindingProperty;
+        }
+        else
+        {
+            var originalFilter = fhObj.filter;
+            fhObj.filter = function(e, oe)
+            {
+                e = originalFilter(e,oe);
+                return addBindingProperty(e);
+            };
+        }
+
+        $.event.fixHooks[ename] = fhObj;
+    });
+
     // Add the guard and sentinel binding handlers
     ko.bindingHandlers.guard = {
         init: function(element, valueAccessor, allBindings, viewModel, bindingContext)
