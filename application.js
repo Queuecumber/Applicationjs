@@ -244,9 +244,9 @@ function (ko, $)
             {
                 // Apply initial component types
                 typeComponents($('body'));
-
+                
                 // get the top level components for expansion
-                var topLevelComponents = $('[data-component]').toArray();
+                var topLevelComponents = findChildComponents($('body'));
 
                 // prepare the application object for top-level collection components
                 var topLevelCollections = topLevelComponents.filter(function (component)
@@ -271,7 +271,8 @@ function (ko, $)
                 // Activate any immediate children that are set to auto-activate
                 this.children().forEach(function (vm)
                 {
-                    if(!vm.active() && vm.view && vm.view().data('activate') !== undefined)
+                    var instanceInfo = getComponentInstanceInfo(vm.view());
+                    if(!vm.active() && vm.view && instanceInfo.activate !== undefined)
                     {
                         if(vm.uid in activationParameters)
                         {
@@ -410,37 +411,44 @@ function (ko, $)
             // Activates the component, any number of arguments can be passed to the activation handlers
             this.activate = function ()
             {
-                this.visible(true);
-                isActive = true;
-
-                if (this.view && this.view().data('componentType') == 'collection')
+                // Only activate a component if its view exists in the DOM
+                if(this.view().length > 0)
                 {
-                    var data = ko.dataFor(this.view().get(0));
+                    var instanceInfo = getComponentInstanceInfo(this.view());
 
-                    var args = $.makeArray(arguments);
+                    this.visible(true);
+                    isActive = true;
 
-                    var params = args.concat(data);
-                    this.activated.trigger.apply(this.activated, params);
-                }
-                else
-                {
-                    this.activated.trigger.apply(this.activated, arguments);
-                }
-
-                this.children().forEach(function (vm)
-                {
-                    if(!vm.active() && vm.view && vm.view().data('activate') !== undefined)
+                    if (this.view && instanceInfo.type == 'collection')
                     {
-                        if(vm.uid in activationParameters)
-                        {
-                            vm.activate(activationParameters[vm.uid]);
-                        }
-                        else
-                        {
-                            vm.activate();
-                        }
+                        var data = ko.dataFor(this.view().get(0));
+
+                        var args = $.makeArray(arguments);
+
+                        var params = args.concat(data);
+                        this.activated.trigger.apply(this.activated, params);
                     }
-                });
+                    else
+                    {
+                        this.activated.trigger.apply(this.activated, arguments);
+                    }
+
+                    this.children().forEach(function (vm)
+                    {
+                        var cii = getComponentInstanceInfo(vm.view());
+                        if(!vm.active() && vm.view && cii.activate !== undefined)
+                        {
+                            if(vm.uid in activationParameters)
+                            {
+                                vm.activate(activationParameters[vm.uid]);
+                            }
+                            else
+                            {
+                                vm.activate();
+                            }
+                        }
+                    });
+                }
             };
             this.activated = new application.Event(); // Activated event
 
@@ -738,6 +746,13 @@ function (ko, $)
         // Preload styles and templates for each component
         this.components().forEach(function (comp, i)
         {
+            // Register a custom element type
+            if(comp.name.indexOf('-') !== -1)
+            {
+                var ce = document.registerElement(comp.name);
+                comp.element = ce;
+            }
+
             // Append the style node to the pages head
             if ('style' in comp)
             {
@@ -781,6 +796,33 @@ function (ko, $)
     }
     var loadComponents = _loadComponents.bind(application);
 
+    function _findChildComponents(componentRoot)
+    {
+        var childComponentsData = componentRoot.find('[data-component]').toArray();
+        var childComponentsCustom = componentRoot.find(this.components().map(function (c) { return c.name; }).join(',')).toArray();
+
+        return childComponentsData.concat(childComponentsCustom);
+    }
+    var findChildComponents = _findChildComponents.bind(application);
+
+    function _getComponentInstanceInfo(componentRoot)
+    {
+        var isDataElement = componentRoot.data().hasOwnProperty('component');
+
+        var component = isDataElement ? componentRoot.data('component') : componentRoot.prop('tagName');
+        var name = isDataElement ? componentRoot.data('name') : componentRoot.attr('name');
+        var type = componentRoot.data('componentType');
+        var activate = isDataElement ? componentRoot.data('activate') : componentRoot.attr('activate');
+
+        return {
+            component: component,
+            name: name,
+            type: type,
+            activate: activate
+        };
+    }
+    var getComponentInstanceInfo = _getComponentInstanceInfo.bind(application);
+
     // Shorthand to expand a single component
     // returns a tree structure in an array of the expanded components
     function _expandComponent(component)
@@ -799,18 +841,19 @@ function (ko, $)
         var viewModels = [];
 
         var enqueueComponent = function (c) { componentsQueue.push(c); };
-        var matchComponentName = function (cname, c) { return c.name == cname; };
+        var matchComponentName = function (cname, c) { return c.name.toLowerCase() == cname.toLowerCase(); };
         while (componentsQueue.length > 0)
         {
             var componentRoot = $(componentsQueue.shift()); // dequeue operation
-            var componentName = componentRoot.data('component');
+
+            // Get the instance info
+            var componentInstanceInfo = getComponentInstanceInfo(componentRoot);
 
             // Check the component type to make sure it isnt a collection component
-            var componentType = componentRoot.data('componentType');
-            if (componentType != 'collection' && componentType != 'conditional')
+            if (componentInstanceInfo.type != 'collection' && componentInstanceInfo.type != 'conditional')
             {
                 // Find the component description
-                var component = this.components().find(matchComponentName.bind(undefined, componentName));
+                var component = this.components().find(matchComponentName.bind(undefined, componentInstanceInfo.component));
                 if (component)
                 {
                     var viewModel = buildComponent(componentRoot, component);
@@ -819,7 +862,7 @@ function (ko, $)
                     viewModels.push(viewModel);
 
                     // Find any child data-component nodes and push them onto the queue
-                    var childComponents = componentRoot.find('[data-component]').toArray();
+                    var childComponents = findChildComponents(componentRoot);
                     childComponents.forEach(enqueueComponent);
                 }
             }
@@ -837,7 +880,10 @@ function (ko, $)
         .map(function (m) { return m.removedNodes; }) // Operate only on the lists of removed nodes
         .map(function (nodeList) { return $.makeArray(nodeList); }) // Turn the nodelists into an array that underscore can manipulate
         .flatten() // Flatten the removals into one array of data to prevent nested pipelines
-        .filter(function (node) { return $(node).data('component'); }) // Remove any DOM events not referring to component nodes
+        .filter(function (node) // Remove any DOM events not referring to component nodes
+        {
+            return $(node).data('component') || application.components().map(function (c) { return c.name; }).indexOf($(node).prop('tagName')) !== -1;
+        })
         .forEach(function (node) // Finally, process each component node
         {
             // Get the unique id of the component
@@ -850,11 +896,12 @@ function (ko, $)
             if (viewModel)
             {
                 // Get the parent and field name
-                var fieldName = $(node).data('name');
+                var instanceInfo = getComponentInstanceInfo($(node));
+                var fieldName = instanceInfo.name;
                 var parent = viewModel.parent();
 
                 // Collection nodes need extra processing
-                if ($(node).data('componentType') == 'collection')
+                if (instanceInfo.type == 'collection')
                 {
                     // Remove the viewmodel from the collection in the parent
                     parent[fieldName]().remove(viewModel);
@@ -878,10 +925,11 @@ function (ko, $)
         childCollections.forEach(function (collection)
         {
             // Get the name of the collection
-            var collectionName = $(collection).data('name');
+            var colInstanceInfo = getComponentInstanceInfo($(collection));
+            var collectionName = colInstanceInfo.name;
 
             // Get the component that will be kept in the collection
-            var componentName = $(collection).data('component');
+            var componentName = colInstanceInfo.component;
             var component = this.components().find(function (c) { return c.name == componentName; });
 
             // Create the prototype for the viewmodel
@@ -901,8 +949,10 @@ function (ko, $)
     {
         /*jshint validthis:true */
 
+        var instanceInfo = getComponentInstanceInfo(componentRoot);
+
         // Get the name to use as a field name
-        var fieldName = componentRoot.data('name');
+        var fieldName = instanceInfo.name;
 
         // Create the view model and add standard fields
         var viewModelProto = new application.ViewModel();
@@ -916,6 +966,13 @@ function (ko, $)
         if (parentRoot.length > 0)
         {
             parent = this.find(parentRoot.attr('id'));
+        }
+        else
+        {
+            var parentRoot = componentRoot.parent().closest(this.components().map(function (c) { return c.name; }).join(','));
+
+            if(parentRoot.length > 0)
+                parent = this.find(parentRoot.attr('id'));
         }
 
         // Add the viewmodel to its parent and add a parent property to the viewmodel
@@ -974,6 +1031,7 @@ function (ko, $)
 
     function typeComponents(root)
     {
+        // Data component selectors
         // Select foreach data-binds and mark components inside as having type "collection"
         var collectionComponents = root.find('[data-bind*="foreach:"] [data-component]');
         collectionComponents.attr('data-component-type', 'collection');
@@ -981,6 +1039,25 @@ function (ko, $)
         // Select if and ifnot data-binds and mark components inside as having type "conditional"
         var conditionalComponents = root.find('[data-bind*="if:"] [data-component],[data-bind*="ifnot:"] [data-component]');
         conditionalComponents.attr('data-component-type', 'conditional');
+
+        // Custom element selectors
+        // foreach for collection components
+        var collectionComponentsCE = application.components()
+            .map(function (c) { return c.name; })
+            .reduce(function (aggregate, currentCE)
+            {
+                return aggregate.add('[data-bind*="foreach:"] ' + currentCE);
+            }, $(false));
+        collectionComponentsCE.attr('data-component-type', 'collection');
+
+        // if/ifnot for conditional components
+        var conditionalComponentsCE = application.components()
+            .map(function (c) { return c.name; })
+            .reduce(function (aggregate, currentCE)
+            {
+                return aggregate.add('[data-bind*="if:"] ' + currentCE + ',[data-bind*="ifnot:"] '  + currentCE);
+            }, $(false));
+        conditionalComponentsCE.attr('data-component-type', 'collection');
     }
 
     // Updates the title element when the application name is set
@@ -1001,8 +1078,10 @@ function (ko, $)
     // Add node processor for foreach bindings
     ko.bindingProvider.instance.preprocessNode = function (node)
     {
-        var componentType = $(node).data('componentType');
-        var componentName = $(node).data('component');
+        var instanceInfo = getComponentInstanceInfo($(node));
+
+        var componentType = instanceInfo.type;
+        var componentName = instanceInfo.component;
 
         if (componentType)
         {
@@ -1012,7 +1091,7 @@ function (ko, $)
             {
                 var viewModel = buildComponent($(node), component, componentType);
 
-                var childComponents = viewModel.view().find('[data-component]').toArray();
+                var childComponents = findChildComponents(viewModel.view());
                 var expandedModels = expandComponents(childComponents);
 
                 // trigger loaded event from bottom up
