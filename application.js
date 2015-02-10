@@ -244,7 +244,7 @@ function (ko, $)
             {
                 // Apply initial component types
                 typeComponents($('body'));
-                
+
                 // get the top level components for expansion
                 var topLevelComponents = findChildComponents($('body'));
 
@@ -749,6 +749,7 @@ function (ko, $)
             // Register a custom element type
             if(comp.name.indexOf('-') !== -1)
             {
+                comp.name = comp.name.toLowerCase();
                 var ce = document.registerElement(comp.name);
                 comp.element = ce;
             }
@@ -805,11 +806,31 @@ function (ko, $)
     }
     var findChildComponents = _findChildComponents.bind(application);
 
+    function _isComponentRoot(element)
+    {
+        var isDataElement = element.data().hasOwnProperty('component');
+
+        if(isDataElement)
+            return true;
+
+        var tagName = element.prop('tagName');
+
+        if(tagName)
+        {
+            var componentName = tagName.toLowerCase();
+
+            return this.components().map(function (c) { return c.name; }).indexOf(componentName) > -1;
+        }
+
+        return false;
+    }
+    var isComponentRoot = _isComponentRoot.bind(application);
+
     function _getComponentInstanceInfo(componentRoot)
     {
         var isDataElement = componentRoot.data().hasOwnProperty('component');
 
-        var component = isDataElement ? componentRoot.data('component') : componentRoot.prop('tagName');
+        var component = isDataElement ? componentRoot.data('component') : componentRoot.prop('tagName').toLowerCase();
         var name = isDataElement ? componentRoot.data('name') : componentRoot.attr('name');
         var type = componentRoot.data('componentType');
         var activate = isDataElement ? componentRoot.data('activate') : componentRoot.attr('activate');
@@ -1078,27 +1099,30 @@ function (ko, $)
     // Add node processor for foreach bindings
     ko.bindingProvider.instance.preprocessNode = function (node)
     {
-        var instanceInfo = getComponentInstanceInfo($(node));
-
-        var componentType = instanceInfo.type;
-        var componentName = instanceInfo.component;
-
-        if (componentType)
+        if(isComponentRoot($(node)))
         {
-            // Find the component description
-            var component = application.components().find(function (c) { return  c.name == componentName; });
-            if (component)
+            var instanceInfo = getComponentInstanceInfo($(node));
+
+            var componentType = instanceInfo.type;
+            var componentName = instanceInfo.component;
+
+            if (componentType)
             {
-                var viewModel = buildComponent($(node), component, componentType);
+                // Find the component description
+                var component = application.components().find(function (c) { return  c.name == componentName; });
+                if (component)
+                {
+                    var viewModel = buildComponent($(node), component, componentType);
 
-                var childComponents = findChildComponents(viewModel.view());
-                var expandedModels = expandComponents(childComponents);
+                    var childComponents = findChildComponents(viewModel.view());
+                    var expandedModels = expandComponents(childComponents);
 
-                // trigger loaded event from bottom up
-                expandedModels.reverse();
-                expandedModels.forEach(function (comp) { comp.loaded.trigger(); });
+                    // trigger loaded event from bottom up
+                    expandedModels.reverse();
+                    expandedModels.forEach(function (comp) { comp.loaded.trigger(); });
 
-                viewModel.loaded.trigger();
+                    viewModel.loaded.trigger();
+                }
             }
         }
     };
