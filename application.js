@@ -235,7 +235,7 @@ function (ko, $)
             if(!components)
             {
                 $.ajaxSetup({ async: false });
-                $.getJSON('components.json', function (c) { components = c; });
+                $.getJSON('/components.json', function (c) { components = c; });
                 $.ajaxSetup({ async: true });
             }
 
