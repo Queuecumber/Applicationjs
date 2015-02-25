@@ -962,7 +962,7 @@ function (ko, $)
                 var viewModel = application.find(uid);
 
                 // Check to see if it needs activation
-                if(viewModel.parent().active())
+                if(viewModel.parent() === application || viewModel.parent().active())
                 {
                     var cii = getComponentInstanceInfo($(node));
                     if(!viewModel.active() && viewModel.view && cii.activate !== undefined)
