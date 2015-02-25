@@ -762,10 +762,12 @@ function (ko, $)
             }
 
             // Load the view template and store it for later
-            $.get(comp.view, {}, function (viewData)
-            {
-                comp.template = viewData;
-            });
+            if ('view' in comp) {
+                $.get(comp.view, {}, function (viewData)
+                {
+                    comp.template = viewData;
+                });
+            }
 
             if(typeof comp.viewModel == 'string')
             {
