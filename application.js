@@ -893,13 +893,15 @@ function (ko, $)
     }
     var expandComponents = _expandComponents.bind(application);
 
-    // Dom node removal observer, used to clean up viewmodels when their views are removed
+    var addedNodes = [];
+
+    // Dom node removal observer, used to clean up viewmodels when their views are removed and auto-activate dynamically loaded components
     var domObserver = new MutationObserver(function (mutations)
     {
-        // This pipeline is optimized to remove any extra processing
+        // Clean up removed collection components
         mutations.filter(function (mutation) { return mutation.removedNodes.length > 0; }) // Remove any mutation events that arent removals
         .map(function (m) { return m.removedNodes; }) // Operate only on the lists of removed nodes
-        .map(function (nodeList) { return $.makeArray(nodeList); }) // Turn the nodelists into an array that underscore can manipulate
+        .map(function (nodeList) { return $.makeArray(nodeList); }) // Turn the nodelists into a real array
         .flatten() // Flatten the removals into one array of data to prevent nested pipelines
         .filter(function (node) // Remove any DOM events not referring to component nodes
         {
@@ -936,6 +938,48 @@ function (ko, $)
                 // Trigger removal events
                 viewModel.removed.trigger();
                 parent.childRemoved.trigger(viewModel);
+            }
+        });
+
+        // Auto-activate dynamically added components
+        mutations.filter(function (mutation) { return mutation.addedNodes.length > 0; }) // Remove any events that are not adds
+        .map(function (m) { return m.addedNodes; }) // Operate only on the addedNodes list
+        .map(function (nodeList) { return $.makeArray(nodeList); }) // Turn them into a real array
+        .flatten() // Flatten
+        .filter(function (node) // Remove DOM events for non components
+        {
+            return $(node).data('component') || application.components().map(function (c) { return c.name; }).indexOf($(node).prop('tagName')) !== -1;
+        })
+        .forEach(function (node) // Process
+        {
+            // Get the unique ID
+            var uid = $(node).attr('id');
+
+            // See if the node was dynamically added
+            if(addedNodes.indexOf(uid) !== -1)
+            {
+                // If it was, find its component
+                var viewModel = application.find(uid);
+
+                // Check to see if it needs activation
+                if(viewModel.parent().active())
+                {
+                    var cii = getComponentInstanceInfo($(node));
+                    if(!viewModel.active() && viewModel.view && cii.activate !== undefined)
+                    {
+                        if(viewModel.uid in activationParameters)
+                        {
+                            viewModel.activate(activationParameters[viewModel.uid]);
+                        }
+                        else
+                        {
+                            viewModel.activate();
+                        }
+                    }
+                }
+
+                // Remove it from the dynamically added nodes list
+                addedNodes.splice(addedNodes.indexOf(uid), 1);
             }
         });
     });
@@ -1122,6 +1166,9 @@ function (ko, $)
                     expandedModels.forEach(function (comp) { comp.loaded.trigger(); });
 
                     viewModel.loaded.trigger();
+
+                    // Add to the list of dynamically added nodes
+                    addedNodes.push(viewModel.uid);
                 }
             }
         }
