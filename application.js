@@ -328,6 +328,9 @@ function (ko, $)
             var parent = viewModels.reverse()[0].parent();
             ko.applyBindingsToNode(component, null, parent);
 
+            // Add the root component UID to the dynamically added components list
+            addedNodes.push(viewModels[0].uid);
+
             // Return the root of the injected componentsQueue
             return viewModels[0];
         },
